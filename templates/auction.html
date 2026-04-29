@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Live Auction</title>
+
+<link rel="stylesheet" href="/static/css/style.css">
+
+<script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
+
+<style>
+
+/* layout */
+.container {
+    display: flex;
+    gap: 15px;
+    padding: 15px;
+}
+
+/* main card */
+.main {
+    flex: 2;
+    background: #1e293b;
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+}
+
+/* side card */
+.side {
+    flex: 1;
+    background: #0f172a;
+    padding: 15px;
+    border-radius: 10px;
+}
+
+/* buttons */
+button {
+    background: #22c55e;
+    border: none;
+    padding: 10px;
+    color: white;
+    border-radius: 6px;
+    cursor: pointer;
+    width: 100%;
+    margin-top: 8px;
+}
+
+button:hover {
+    background: #16a34a;
+}
+
+/* input */
+input {
+    width: 100%;
+    padding: 10px;
+    margin-top: 8px;
+    border-radius: 6px;
+    border: none;
+}
+
+/* image */
+img {
+    border-radius: 10px;
+    margin-top: 10px;
+    max-width: 100%;
+}
+
+/* mobile */
+@media (max-width: 900px) {
+    .container {
+        flex-direction: column;
+    }
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+    <!-- MAIN AUCTION AREA -->
+    <div class="main">
+
+        <h2>{{ team.team_name }}</h2>
+
+        <h1 id="player">Waiting for player...</h1>
+
+        <img id="photo" width="220">
+
+        <h3>Base Price: <span id="base">0</span></h3>
+
+        <h1 style="color:yellow;">
+            Current Bid: <span id="bid">0</span>
+        </h1>
+
+        <h2 style="color:red;">
+            Timer: <span id="timer">10</span>
+        </h2>
+
+        <h3>
+            Leading Team: <span id="leader">-</span>
+        </h3>
+
+        <hr>
+
+        <!-- BIDDING -->
+        <button onclick="bid()">+ BID</button>
+
+        <input id="custom" placeholder="Enter custom bid">
+
+        <button onclick="customBid()">Submit Custom Bid</button>
+
+    </div>
+
+    <!-- TEAM INFO -->
+    <div class="side">
+
+        <h2>🏏 Team Info</h2>
+
+        <b>{{ team.team_name }}</b>
+
+        <p>💰 Points Left: {{ team.remaining_points }}</p>
+
+        <p>👤 Players Bought: {{ team.players_bought }}/7</p>
+
+        <hr>
+
+        <h3>📊 Auction Rules</h3>
+
+        <p>✔ Min bid increment auto</p>
+        <p>✔ Max bid depends on reserve</p>
+        <p>✔ Must buy 7 players</p>
+
+        <hr>
+
+        <h3>📌 Your Limits</h3>
+
+        <p>Reserve & Max bid calculated by system</p>
+
+    </div>
+
+</div>
+
+<!-- SOCKET LOGIC -->
+<script>
+
+var socket = io();
+
+/* JOIN */
+socket.emit("join");
+
+/* NEW PLAYER */
+socket.on("new_player", function(data){
+
+    document.getElementById("player").innerText = data.name;
+    document.getElementById("photo").src = "/static/uploads/" + data.photo;
+    document.getElementById("base").innerText = data.base_price;
+    document.getElementById("bid").innerText = data.base_price;
+    document.getElementById("leader").innerText = "-";
+
+});
+
+/* BID UPDATE */
+socket.on("update_bid", function(data){
+
+    document.getElementById("bid").innerText = data.bid;
+    document.getElementById("leader").innerText = data.team;
+
+});
+
+/* TIMER */
+socket.on("timer", function(data){
+    document.getElementById("timer").innerText = data.time;
+});
+
+/* TIMER END */
+socket.on("timer_end", function(){
+    document.getElementById("timer").innerText = "TIME UP";
+});
+
+/* BID */
+function bid(){
+    socket.emit("bid");
+}
+
+/* CUSTOM BID */
+function customBid(){
+
+    var value = document.getElementById("custom").value;
+
+    socket.emit("custom_bid", {
+        amount: value
+    });
+
+}
+
+</script>
+
+</body>
+</html>

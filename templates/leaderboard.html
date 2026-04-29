@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Live Leaderboard</title>
+
+<link rel="stylesheet" href="/static/css/style.css">
+
+<script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
+
+<style>
+
+body {
+    background: #020617;
+    color: white;
+    font-family: Arial;
+    text-align: center;
+}
+
+/* leaderboard container */
+.board {
+    width: 80%;
+    margin: auto;
+}
+
+/* team card */
+.team {
+    display: flex;
+    justify-content: space-between;
+    background: #1e293b;
+    padding: 15px;
+    margin: 10px 0;
+    border-radius: 10px;
+    align-items: center;
+}
+
+/* bar visualization */
+.bar {
+    height: 10px;
+    background: #22c55e;
+    border-radius: 5px;
+}
+
+/* highlight top team */
+.top {
+    border: 2px solid gold;
+}
+
+/* mobile */
+@media (max-width: 900px) {
+    .board {
+        width: 95%;
+    }
+
+    .team {
+        flex-direction: column;
+        gap: 10px;
+    }
+}
+
+</style>
+
+</head>
+
+<body>
+
+<h1>🏆 LIVE LEADERBOARD</h1>
+
+<div class="board">
+
+    {% set max_points = teams[0].remaining_points if teams else 1 %}
+
+    {% for t in teams %}
+
+    <div class="team {% if loop.first %}top{% endif %}">
+
+        <div style="width: 25%;">
+            <h3>{{ t.team_name }}</h3>
+        </div>
+
+        <div style="width: 25%;">
+            💰 {{ t.remaining_points }}
+        </div>
+
+        <div style="width: 25%;">
+            👤 {{ t.players_bought }}/7
+        </div>
+
+        <div style="width: 25%;">
+            <div class="bar"
+                 style="width: {{ (t.remaining_points / max_points) * 100 }}%">
+            </div>
+        </div>
+
+    </div>
+
+    {% endfor %}
+
+</div>
+
+<script>
+
+var socket = io();
+
+/* LIVE UPDATE */
+socket.on("update_bid", function(){
+    location.reload();
+});
+
+socket.on("player_sold", function(){
+    location.reload();
+});
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,86 @@
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #020617;
+    color: white;
+}
+
+/* GLOBAL LAYOUT HELPERS */
+.container {
+    display: flex;
+    gap: 15px;
+    padding: 15px;
+}
+
+/* CARDS */
+.card {
+    background: #1e293b;
+    padding: 15px;
+    border-radius: 10px;
+}
+
+/* BUTTONS */
+button {
+    background: #22c55e;
+    border: none;
+    padding: 10px 12px;
+    color: white;
+    cursor: pointer;
+    border-radius: 6px;
+    width: 100%;
+    margin-top: 5px;
+    font-size: 14px;
+}
+
+button:hover {
+    background: #16a34a;
+}
+
+.sell {
+    background: #ef4444;
+}
+
+.sell:hover {
+    background: #dc2626;
+}
+
+/* INPUTS */
+input, select {
+    width: 100%;
+    padding: 10px;
+    margin: 6px 0;
+    border-radius: 5px;
+    border: none;
+}
+
+/* IMAGES */
+img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 10px;
+}
+
+/* =========================
+   📱 MOBILE RESPONSIVE
+========================= */
+
+@media (max-width: 900px) {
+
+    .container {
+        flex-direction: column;
+    }
+
+    .left, .center, .right {
+        width: 100% !important;
+        height: auto !important;
+    }
+
+    button {
+        font-size: 16px;
+        padding: 12px;
+    }
+
+    h1, h2, h3 {
+        font-size: 18px;
+    }
+}

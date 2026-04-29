@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Live Auction Board</title>
+
+<link rel="stylesheet" href="/static/css/style.css">
+
+<script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
+
+<style>
+
+body {
+    background: #020617;
+    color: white;
+    font-family: Arial;
+}
+
+/* Layout */
+.wrapper {
+    display: flex;
+    gap: 15px;
+    padding: 15px;
+}
+
+/* Panels */
+.panel {
+    background: #1e293b;
+    padding: 15px;
+    border-radius: 10px;
+}
+
+/* sizes */
+.left { flex: 2; }
+.mid { flex: 2; }
+.right { flex: 1; }
+
+/* cards */
+.card {
+    background: #0f172a;
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+}
+
+/* mobile */
+@media (max-width: 900px) {
+    .wrapper {
+        flex-direction: column;
+    }
+}
+
+</style>
+
+</head>
+
+<body>
+
+<h1 style="text-align:center;">🏏 LIVE AUCTION BOARD</h1>
+
+<div class="wrapper">
+
+    <!-- LEFT: CURRENT AUCTION -->
+    <div class="panel left">
+
+        <h2>Current Player</h2>
+
+        {% if current_player %}
+
+        <h1>{{ current_player.name }}</h1>
+
+        <img src="/static/uploads/{{ current_player.photo }}" width="200">
+
+        <h3>Base: {{ current_player.base_price }}</h3>
+
+        <h1 style="color:yellow;">
+            Bid: {{ state.current_bid }}
+        </h1>
+
+        <h3>
+            Leading:
+            {% if leading_team %}
+                {{ leading_team.team_name }}
+            {% else %}
+                None
+            {% endif %}
+        </h3>
+
+        <h2 style="color:red;">
+            Timer: <span id="timer">10</span>
+        </h2>
+
+        {% else %}
+        <h2>No Active Auction</h2>
+        {% endif %}
+
+    </div>
+
+    <!-- MIDDLE: TEAMS -->
+    <div class="panel mid">
+
+        <h2>Teams Status</h2>
+
+        {% for t in teams %}
+
+        <div class="card">
+            <b>{{ t.team_name }}</b><br>
+            Points: {{ t.remaining_points }}<br>
+            Players: {{ t.players_bought }}/7
+        </div>
+
+        {% endfor %}
+
+    </div>
+
+    <!-- RIGHT: SOLD PLAYERS -->
+    <div class="panel right">
+
+        <h2>Sold Players</h2>
+
+        {% for p in sold_players %}
+
+        <div class="card">
+            <b>{{ p.name }}</b><br>
+            Sold for: {{ p.sold_price }}<br>
+
+            Team ID: {{ p.team_id }}
+        </div>
+
+        {% endfor %}
+
+    </div>
+
+</div>
+
+<!-- SOCKET -->
+<script>
+
+var socket = io();
+
+/* LIVE BID UPDATE */
+socket.on("update_bid", function(data){
+    location.reload(); // simple refresh update (can upgrade later)
+});
+
+/* TIMER */
+socket.on("timer", function(data){
+    document.getElementById("timer").innerText = data.time;
+});
+
+socket.on("timer_end", function(){
+    document.getElementById("timer").innerText = "TIME UP";
+});
+
+/* PLAYER SOLD */
+socket.on("player_sold", function(){
+    location.reload();
+});
+
+</script>
+
+</body>
+</html>

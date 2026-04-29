@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Auction Control Room</title>
+
+<style>
+
+body {
+    margin: 0;
+    font-family: Arial;
+    background: #020617;
+    color: white;
+}
+
+.header {
+    text-align: center;
+    padding: 10px;
+    background: #0f172a;
+}
+
+/* layout */
+.container {
+    display: flex;
+    gap: 15px;
+    padding: 15px;
+}
+
+/* panels */
+.panel {
+    background: #1e293b;
+    padding: 15px;
+    border-radius: 10px;
+}
+
+/* sizes */
+.left { flex: 1; height: 85vh; overflow-y: auto; }
+.center { flex: 2; text-align: center; }
+.right { flex: 1; height: 85vh; overflow-y: auto; }
+
+/* cards */
+.card {
+    background: #0f172a;
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+}
+
+/* buttons */
+button {
+    background: #22c55e;
+    border: none;
+    padding: 8px 10px;
+    color: white;
+    cursor: pointer;
+    border-radius: 5px;
+    width: 100%;
+    margin-top: 5px;
+}
+
+button:hover {
+    background: #16a34a;
+}
+
+.sell {
+    background: #ef4444;
+}
+
+.sell:hover {
+    background: #dc2626;
+}
+
+/* images */
+img {
+    max-width: 100%;
+    border-radius: 10px;
+}
+
+/* links */
+a {
+    color: #38bdf8;
+    text-decoration: none;
+}
+
+/* mobile */
+@media (max-width: 900px) {
+    .container {
+        flex-direction: column;
+    }
+
+    .left, .right {
+        height: auto;
+    }
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="header">
+    <h1>🔥 Auction Control Room</h1>
+
+    <a href="/admin">← Dashboard</a> |
+    <a href="/live" target="_blank">Live Screen</a> |
+    <a href="/leaderboard" target="_blank">Leaderboard</a>
+</div>
+
+<div class="container">
+
+    <!-- LEFT: PLAYERS -->
+    <div class="panel left">
+
+        <h2>Available Players</h2>
+
+        {% for p in players %}
+
+        <div class="card">
+
+            <b>{{ p.name }}</b><br>
+            Base Price: {{ p.base_price }}<br>
+
+            {% if p.status == "sold" %}
+                <span style="color:yellow;">SOLD</span>
+            {% else %}
+                <a href="/start_player/{{ p.id }}">
+                    <button>Start Auction</button>
+                </a>
+            {% endif %}
+
+        </div>
+
+        {% endfor %}
+
+    </div>
+
+    <!-- CENTER: CURRENT AUCTION -->
+    <div class="panel center">
+
+        <h2>Current Auction</h2>
+
+        {% if current_player %}
+
+        <h1>{{ current_player.name }}</h1>
+
+        <img src="/static/uploads/{{ current_player.photo }}" width="220">
+
+        <p>{{ current_player.description }}</p>
+
+        <h3>Base Price: {{ current_player.base_price }}</h3>
+
+        <h1 style="color:yellow;">
+            Current Bid: {{ state.current_bid }}
+        </h1>
+
+        <h3>
+            Leading Team ID: {{ state.current_team_id }}
+        </h3>
+
+        <br><br>
+
+        <a href="/sell_player">
+            <button class="sell">SELL PLAYER</button>
+        </a>
+
+        {% else %}
+
+        <h2>No Active Auction</h2>
+
+        {% endif %}
+
+    </div>
+
+    <!-- RIGHT: TEAM STATUS -->
+    <div class="panel right">
+
+        <h2>Teams Status</h2>
+
+        {% for t in teams %}
+
+        {% set reserve, max_bid, needed = get_team_limits(t) %}
+
+        <div class="card">
+
+            <b>{{ t.team_name }}</b><br><br>
+
+            💰 Points: {{ t.remaining_points }}<br>
+            👤 Players: {{ t.players_bought }}/7<br>
+            📌 Needed: {{ needed }}<br>
+            🛑 Reserve: {{ reserve }}<br>
+            🚀 Max Bid: {{ max_bid }}
+
+        </div>
+
+        {% endfor %}
+
+    </div>
+
+</div>
+
+</body>
+</html>

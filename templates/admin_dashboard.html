@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Admin Dashboard</title>
+
+<style>
+
+body {
+    margin: 0;
+    font-family: Arial;
+    background: #020617;
+    color: white;
+}
+
+.header {
+    text-align: center;
+    padding: 15px;
+    background: #0f172a;
+}
+
+.container {
+    display: flex;
+    gap: 15px;
+    padding: 15px;
+}
+
+/* panels */
+.panel {
+    flex: 1;
+    background: #1e293b;
+    padding: 15px;
+    border-radius: 10px;
+    height: 85vh;
+    overflow-y: auto;
+}
+
+/* inputs */
+input, select {
+    width: 100%;
+    padding: 10px;
+    margin: 6px 0;
+    border: none;
+    border-radius: 5px;
+}
+
+/* buttons */
+button {
+    background: #22c55e;
+    border: none;
+    padding: 10px;
+    color: white;
+    cursor: pointer;
+    border-radius: 5px;
+    width: 100%;
+    margin-top: 5px;
+}
+
+button:hover {
+    background: #16a34a;
+}
+
+/* links */
+a {
+    color: #38bdf8;
+    text-decoration: none;
+}
+
+/* cards */
+.card {
+    background: #0f172a;
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+}
+
+/* mobile */
+@media (max-width: 900px) {
+    .container {
+        flex-direction: column;
+    }
+
+    .panel {
+        height: auto;
+    }
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="header">
+    <h1>🏏 Cricket Auction Admin Panel</h1>
+
+    <a href="/admin/auction">🔥 Auction Room</a> |
+    <a href="/live" target="_blank">📺 Live Screen</a> |
+    <a href="/leaderboard" target="_blank">📊 Leaderboard</a>
+</div>
+
+<div class="container">
+
+    <!-- LEFT: ADD TEAM -->
+    <div class="panel">
+
+        <h2>➕ Add Team</h2>
+
+        <form action="/add_team" method="post">
+
+            Team Name
+            <input name="team_name" required>
+
+            Username
+            <input name="username" required>
+
+            Password
+            <input name="password" required>
+
+            <button type="submit">Add Team</button>
+
+        </form>
+
+        <hr>
+
+        <h3>🏆 Teams</h3>
+
+        {% for t in teams %}
+        <div class="card">
+            <b>{{ t.team_name }}</b><br>
+            Points: {{ t.remaining_points }}<br>
+            Players: {{ t.players_bought }}/7
+        </div>
+        {% endfor %}
+
+    </div>
+
+    <!-- CENTER: ADD PLAYER -->
+    <div class="panel">
+
+        <h2>➕ Add Player</h2>
+
+        <form action="/add_player" method="post" enctype="multipart/form-data">
+
+            Name
+            <input name="name" required>
+
+            Role
+            <input name="role" required>
+
+            Description
+            <input name="description" required>
+
+            Category
+            <select name="category">
+
+                <option value="1">Category 1 - 500</option>
+                <option value="2">Category 2 - 400</option>
+                <option value="3">Category 3 - 300</option>
+                <option value="4">Category 4 - 200</option>
+                <option value="5">Category 5 - 100</option>
+
+            </select>
+
+            Photo
+            <input type="file" name="photo" required>
+
+            <button type="submit">Add Player</button>
+
+        </form>
+
+    </div>
+
+    <!-- RIGHT: PLAYERS LIST -->
+    <div class="panel">
+
+        <h2>👤 Players</h2>
+
+        {% for p in players %}
+        <div class="card">
+
+            <b>{{ p.name }}</b><br>
+            Category: {{ p.category }}<br>
+            Base: {{ p.base_price }}<br>
+
+            {% if p.status == "sold" %}
+                <span style="color:yellow;">
+                    SOLD ({{ p.sold_price }})
+                </span>
+            {% else %}
+                <span style="color:#38bdf8;">
+                    AVAILABLE
+                </span>
+            {% endif %}
+
+        </div>
+        {% endfor %}
+
+    </div>
+
+</div>
+
+</body>
+</html>
