@@ -2,12 +2,19 @@ from flask import Flask, render_template, request, redirect, session
 from flask_socketio import SocketIO, emit
 from models import db, Team, Player, AuctionState
 import os, time
+from werkzeug.utils import secure_filename
+import os
 
 app = Flask(__name__)
 app.secret_key = "auction_secret_key"
 
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
-app.config['UPLOAD_FOLDER'] = 'static/uploads'
+
+UPLOAD_FOLDER = "static/uploads"
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+
+# 🔥 CREATE FOLDER IF NOT EXISTS (IMPORTANT)
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 db.init_app(app)
 socketio = SocketIO(app,cors_allowed_origins="*", async_mode="eventlet")
@@ -115,10 +122,13 @@ def add_team():
 # ---------------- ADD PLAYER ----------------
 @app.route("/add_player", methods=["POST"])
 def add_player():
+    
     category = int(request.form["category"])
-    photo = request.files["photo"]
-    filename = photo.filename
-    photo.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+    photo = request.files.get("photo")
+    filename = "default.png"
+    if photo:
+        filename = secure_filename(photo.filename)
+        photo.save(os.path.join(app.config["UPLOAD_FOLDER"], filename))
 
     player = Player(
         name=request.form["name"],
