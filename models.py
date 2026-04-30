@@ -17,6 +17,8 @@ class Team(db.Model):
     remaining_points = db.Column(db.Integer, default=10000)
 
     players_bought = db.Column(db.Integer, default=0)
+    
+    is_ready = db.Column(db.Boolean, default=False)
 
 
 # Player Table
@@ -25,15 +27,7 @@ class Player(db.Model):
 
     name = db.Column(db.String(100))
 
-    category = db.Column(db.Integer)
-
-    role = db.Column(db.String(100))
-    
-    description = db.Column(db.String(500))
-
-    base_price = db.Column(db.Integer)
-
-    photo = db.Column(db.String(200))
+    player_card = db.Column(db.String(200))
 
     status = db.Column(db.String(50), default="unsold")
 
@@ -47,9 +41,11 @@ class AuctionState(db.Model):
     id = db.Column(db.Integer, primary_key=True)
 
     current_player_id = db.Column(db.Integer)
-
     current_bid = db.Column(db.Integer)
-
     current_team_id = db.Column(db.Integer)
 
-    auction_status = db.Column(db.String(50))
+    auction_status = db.Column(db.String(50))  # stopped / running / waiting
+
+    timer = db.Column(db.Integer, default=60)
+
+    full_auction_started = db.Column(db.Boolean, default=False)

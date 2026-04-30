@@ -55,9 +55,8 @@ input, select {
 
 /* IMAGES */
 img {
-    max-width: 100%;
-    height: auto;
-    border-radius: 10px;
+    border-radius: 12px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.5);
 }
 
 /* =========================

@@ -87,7 +87,7 @@ img {
 
         <h1 id="player">Waiting for player...</h1>
 
-        <img id="photo" width="220">
+        <img id="card" style="width:100%; max-width:350px;">
 
         <h3>Base Price: <span id="base">0</span></h3>
 
@@ -155,7 +155,7 @@ socket.emit("join");
 socket.on("new_player", function(data){
 
     document.getElementById("player").innerText = data.name;
-    document.getElementById("photo").src = "/static/uploads/" + data.photo;
+    document.getElementById("card").src = "/static/uploads/" + data.card;
     document.getElementById("base").innerText = data.base_price;
     document.getElementById("bid").innerText = data.base_price;
     document.getElementById("leader").innerText = "-";

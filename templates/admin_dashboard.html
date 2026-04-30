@@ -144,12 +144,6 @@ a {
             Name
             <input name="name" required>
 
-            Role
-            <input name="role" required>
-
-            Description
-            <input name="description" required>
-
             Category
             <select name="category">
 
@@ -161,8 +155,8 @@ a {
 
             </select>
 
-            Photo
-            <input type="file" name="photo" required>
+            Player Card Image
+            <input type="file" name="card" required>
 
             <button type="submit">Add Player</button>
 
@@ -179,7 +173,7 @@ a {
         <div class="card">
 
             <b>{{ p.name }}</b><br>
-            Category: {{ p.category }}<br>
+            Details: {{ p.card }}<br>
             Base: {{ p.base_price }}<br>
 
             {% if p.status == "sold" %}
