@@ -26,6 +26,10 @@ class Player(db.Model):
     id = db.Column(db.Integer, primary_key=True)
 
     name = db.Column(db.String(100))
+    
+    category = db.Column(db.Integer)
+    
+    base_price = db.Column(db.Integer)
 
     player_card = db.Column(db.String(200))
 

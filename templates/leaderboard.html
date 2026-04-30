@@ -101,13 +101,44 @@ body {
 
 var socket = io();
 
-/* LIVE UPDATE */
-socket.on("update_bid", function(){
-    location.reload();
-});
+socket.emit("request_state");
 
-socket.on("player_sold", function(){
-    location.reload();
+/* RECEIVE FULL AUCTION STATE */
+socket.on("auction_state_update", function(data){
+
+    // PLAYER
+    if(data.player){
+        if(document.getElementById("player")){
+            document.getElementById("player").innerText = data.player.name;
+        }
+
+        if(document.getElementById("card")){
+            document.getElementById("card").src = "/static/uploads/" + data.player.card;
+        }
+
+        if(document.getElementById("base")){
+            document.getElementById("base").innerText = data.player.base_price;
+        }
+    }
+
+    // BID
+    if(document.getElementById("bid")){
+        document.getElementById("bid").innerText = data.bid;
+    }
+
+    // LEADING TEAM
+    if(document.getElementById("leader")){
+        document.getElementById("leader").innerText = data.leading_team || "-";
+    }
+
+    // TIMER
+    if(document.getElementById("timer")){
+        document.getElementById("timer").innerText = data.timer;
+    }
+
+    // (OPTIONAL DEBUG)
+    console.log("Teams:", data.teams);
+    console.log("Sold:", data.sold);
 });
 
 </script>

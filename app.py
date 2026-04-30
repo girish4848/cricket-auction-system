@@ -19,7 +19,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 db.init_app(app)
 socketio = SocketIO(app,cors_allowed_origins="*", async_mode="eventlet")
 
-# ---------------- CATEGORY ----------------
+# ---------------- CATEGORY PRICES ----------------
 CATEGORY_PRICES = {
     1: 500,
     2: 400,
@@ -28,7 +28,7 @@ CATEGORY_PRICES = {
     5: 100
 }
 
-# ---------------- INIT ----------------
+# ---------------- INIT DB ----------------
 with app.app_context():
     db.create_all()
 
@@ -51,16 +51,63 @@ def calculate_increment(bid):
         return 100
     return 200
 
+
 def get_team_limits(team):
     needed = 7 - team.players_bought
     reserve = needed * 100
     max_bid = team.remaining_points - reserve
     return reserve, max_bid, needed
 
+
 app.jinja_env.globals.update(get_team_limits=get_team_limits)
+
+# ---------------- REALTIME STATE BROADCAST ----------------
+def broadcast_state():
+
+    state = AuctionState.query.first()
+
+    player = None
+    if state.current_player_id:
+        player = Player.query.get(state.current_player_id)
+
+    teams = Team.query.all()
+
+    socketio.emit("auction_state_update", {
+        "player": {
+            "name": player.name,
+            "card": player.player_card,
+            "base_price": player.base_price
+        } if player else None,
+
+        "bid": state.current_bid,
+        "leading_team": Team.query.get(state.current_team_id).team_name
+            if state.current_team_id else None,
+
+        "timer": state.timer,
+        "status": state.auction_status,
+
+        "teams": [
+            {
+                "name": t.team_name,
+                "points": t.remaining_points,
+                "players": t.players_bought,
+                "ready": t.is_ready
+            } for t in teams
+        ],
+
+        "sold": [
+            {
+                "name": p.name,
+                "team": Team.query.get(p.team_id).team_name if p.team_id else None,
+                "price": p.sold_price
+            }
+            for p in Player.query.filter_by(status="sold").all()
+        ]
+    })
 
 # ---------------- TIMER ENGINE ----------------
 def run_timer():
+
     while True:
         state = AuctionState.query.first()
 
@@ -69,8 +116,8 @@ def run_timer():
 
         if state.timer <= 0:
 
-            # AUTO SELL
-            if state.current_team_id:
+            if state.current_team_id and state.current_player_id:
+
                 team = Team.query.get(state.current_team_id)
                 player = Player.query.get(state.current_player_id)
 
@@ -87,10 +134,7 @@ def run_timer():
                     "price": player.sold_price
                 })
 
-            else:
-                socketio.emit("no_bid")
-
-            # RESET STATE
+            # reset
             state.current_player_id = None
             state.current_bid = 0
             state.current_team_id = None
@@ -98,44 +142,54 @@ def run_timer():
             state.timer = 60
 
             db.session.commit()
+            broadcast_state()
             break
-
-        socketio.emit("timer", {"time": state.timer})
 
         state.timer -= 1
         db.session.commit()
 
+        broadcast_state()
         time.sleep(1)
 
+# ---------------- HOME ----------------
+@app.route("/")
+def home():
+    return redirect("/auction")
+
 # ---------------- LOGIN ----------------
-@app.route("/", methods=["GET", "POST"])
+@app.route("/login", methods=["POST"])
 def login():
-    if request.method == "POST":
-        team = Team.query.filter_by(
-            username=request.form["username"],
-            password=request.form["password"]
-        ).first()
+    team = Team.query.filter_by(
+        username=request.form["username"],
+        password=request.form["password"]
+    ).first()
 
-        if team:
-            session["team_id"] = team.id
-            return redirect("/auction")
+    if team:
+        session["team_id"] = team.id
+        return redirect("/auction")
 
-    return render_template("login.html")
+    return redirect("/")
+
+# ---------------- AUCTION PAGE ----------------
+@app.route("/auction")
+def auction():
+    if "team_id" not in session:
+        return render_template("login.html")
+
+    team = Team.query.get(session["team_id"])
+    return render_template("auction.html", team=team)
 
 # ---------------- ADMIN DASHBOARD ----------------
 @app.route("/admin")
-def admin_dashboard():
-    return render_template(
-        "admin_dashboard.html",
-        players=Player.query.all(),
-        teams=Team.query.all()
-    )
+def admin():
+    return render_template("admin_dashboard.html",
+                           teams=Team.query.all(),
+                           players=Player.query.all())
 
 # ---------------- ADMIN AUCTION ----------------
 @app.route("/admin/auction")
 def admin_auction():
-    players = Player.query.filter_by(status="unsold").all()
-    teams = Team.query.all()
+
     state = AuctionState.query.first()
 
     current_player = None
@@ -144,31 +198,11 @@ def admin_auction():
 
     return render_template(
         "admin_auction.html",
-        players=players,
-        teams=teams,
+        players=Player.query.filter_by(status="unsold").all(),
+        teams=Team.query.all(),
         state=state,
         current_player=current_player
     )
-
-# ---------------- LIVE BOARD ----------------
-@app.route("/live")
-def live_board():
-    return render_template(
-        "live_board.html",
-        teams=Team.query.all(),
-        sold_players=Player.query.filter_by(status="sold").all(),
-        state=AuctionState.query.first()
-    )
-
-# ---------------- START FULL AUCTION ----------------
-@app.route("/start_full_auction")
-def start_full_auction():
-    state = AuctionState.query.first()
-    state.full_auction_started = True
-    db.session.commit()
-
-    socketio.emit("auction_started")
-    return redirect("/admin/auction")
 
 # ---------------- ADD TEAM ----------------
 @app.route("/add_team", methods=["POST"])
@@ -176,7 +210,8 @@ def add_team():
     db.session.add(Team(
         team_name=request.form["team_name"],
         username=request.form["username"],
-        password=request.form["password"]
+        password=request.form["password"],
+        remaining_points=10000
     ))
     db.session.commit()
     return redirect("/admin")
@@ -186,16 +221,11 @@ def add_team():
 def add_player():
 
     category = int(request.form["category"])
-
-    # get uploaded card image
     card = request.files["card"]
 
     filename = card.filename
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    card.save(os.path.join(app.config["UPLOAD_FOLDER"], filename))
 
-    card.save(filepath)
-
-    # ✅ CREATE player object (THIS WAS MISSING)
     player = Player(
         name=request.form["name"],
         category=category,
@@ -208,34 +238,20 @@ def add_player():
 
     return redirect("/admin")
 
-# ---------------- AUCTION PAGE ----------------
-@app.route("/auction")
-def auction():
-    if "team_id" not in session:
-        return redirect("/")
-    team = Team.query.get(session["team_id"])
-    return render_template("auction.html", team=team)
-
-# ---------------- READY SYSTEM ----------------
-@socketio.on("ready")
-def ready():
-    if "team_id" not in session:
-        return
-
-    team = Team.query.get(session["team_id"])
-    team.is_ready = True
+# ---------------- START FULL AUCTION ----------------
+@app.route("/start_full_auction")
+def start_full_auction():
+    state = AuctionState.query.first()
+    state.full_auction_started = True
     db.session.commit()
 
-    socketio.emit("ready_update", {
-        "teams": [
-            {"name": t.team_name, "ready": t.is_ready}
-            for t in Team.query.all()
-        ]
-    })
+    broadcast_state()
+    return redirect("/admin/auction")
 
 # ---------------- START PLAYER ----------------
 @app.route("/start_player/<int:pid>")
 def start_player(pid):
+
     state = AuctionState.query.first()
     player = Player.query.get(pid)
 
@@ -247,17 +263,13 @@ def start_player(pid):
 
     db.session.commit()
 
-    socketio.emit("new_player", {
-        "name": player.name,
-        "card": player.player_card,
-        "base_price": player.base_price
-    })
-
+    broadcast_state()
     return redirect("/admin/auction")
 
 # ---------------- BID ----------------
 @socketio.on("bid")
 def bid():
+
     if "team_id" not in session:
         return
 
@@ -279,18 +291,12 @@ def bid():
 
     db.session.commit()
 
-    socketio.emit("update_bid", {
-        "bid": new_bid,
-        "team": team.team_name
-    })
-
     socketio.start_background_task(run_timer)
+    broadcast_state()
 
 # ---------------- CUSTOM BID ----------------
 @socketio.on("custom_bid")
 def custom_bid(data):
-    if "team_id" not in session:
-        return
 
     team = Team.query.get(session["team_id"])
     state = AuctionState.query.first()
@@ -309,63 +315,98 @@ def custom_bid(data):
 
     db.session.commit()
 
-    socketio.emit("update_bid", {
-        "bid": amount,
-        "team": team.team_name
+    socketio.start_background_task(run_timer)
+    broadcast_state()
+
+# ---------------- MANUAL SELL ----------------
+@app.route("/manual_sell", methods=["POST"])
+def manual_sell():
+
+    player = Player.query.get(request.form["player_id"])
+    team = Team.query.get(request.form["team_id"])
+    amount = int(request.form["amount"])
+
+    player.status = "sold"
+    player.team_id = team.id
+    player.sold_price = amount
+
+    team.remaining_points -= amount
+    team.players_bought += 1
+
+    db.session.commit()
+
+    socketio.emit("player_sold", {
+        "player": player.name,
+        "team": team.team_name,
+        "price": amount
     })
 
-    socketio.start_background_task(run_timer)
-
-# ---------------- END PLAYER ----------------
-@app.route("/end_player")
-def end_player():
-    state = AuctionState.query.first()
-    state.auction_status = "stopped"
-    db.session.commit()
+    broadcast_state()
     return redirect("/admin/auction")
 
-# ---------------- UNSOLD ----------------
-@app.route("/unsold")
-def unsold():
+# ---------------- SELL CURRENT BID ----------------
+@app.route("/sell_current")
+def sell_current():
+
     state = AuctionState.query.first()
 
     player = Player.query.get(state.current_player_id)
-    player.status = "unsold"
+    team = Team.query.get(state.current_team_id)
 
-    socketio.emit("unsold", {"player": player.name})
+    if not player or not team:
+        return redirect("/admin/auction")
+
+    player.status = "sold"
+    player.team_id = team.id
+    player.sold_price = state.current_bid
+
+    team.remaining_points -= state.current_bid
+    team.players_bought += 1
 
     state.current_player_id = None
     state.current_bid = 0
     state.current_team_id = None
     state.auction_status = "waiting"
+    state.timer = 60
 
     db.session.commit()
 
+    socketio.emit("player_sold", {
+        "player": player.name,
+        "team": team.team_name,
+        "price": player.sold_price
+    })
+
+    broadcast_state()
     return redirect("/admin/auction")
 
-# ---------------- UNDO LAST ----------------
-@app.route("/undo")
-def undo():
-    last = Player.query.filter_by(status="sold").order_by(Player.id.desc()).first()
+# ---------------- UNSOLD ----------------
+@app.route("/unsold")
+def unsold():
 
-    if not last:
-        return redirect("/admin/auction")
+    state = AuctionState.query.first()
+    player = Player.query.get(state.current_player_id)
 
-    team = Team.query.get(last.team_id)
+    if player:
+        player.status = "unsold"
 
-    team.remaining_points += last.sold_price
-    team.players_bought -= 1
-
-    last.status = "unsold"
-    last.team_id = None
-    last.sold_price = None
+    state.current_player_id = None
+    state.current_bid = 0
+    state.current_team_id = None
+    state.auction_status = "waiting"
+    state.timer = 60
 
     db.session.commit()
 
-    socketio.emit("undo", {"player": last.name})
-
+    broadcast_state()
     return redirect("/admin/auction")
+
+# ---------------- REQUEST STATE ----------------
+@socketio.on("request_state")
+def send_state():
+    broadcast_state()
 
 # ---------------- RUN ----------------
 if __name__ == "__main__":
-    socketio.run(app, host="0.0.0.0", port=10000)
+   # socketio.run(app, host="0.0.0.0", port=10000)
+    socketio.run(app, debug=True)
