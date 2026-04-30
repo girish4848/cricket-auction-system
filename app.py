@@ -184,18 +184,28 @@ def add_team():
 # ---------------- ADD PLAYER ----------------
 @app.route("/add_player", methods=["POST"])
 def add_player():
+
     category = int(request.form["category"])
 
+    # get uploaded card image
     card = request.files["card"]
-    filename = card.filename
-    card.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
 
-    db.session.add(Player(
+    filename = card.filename
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+
+    card.save(filepath)
+
+    # ✅ CREATE player object (THIS WAS MISSING)
+    player = Player(
         name=request.form["name"],
-        player_card = filename
-    ))
+        category=category,
+        base_price=CATEGORY_PRICES[category],
+        player_card=filename
+    )
+
     db.session.add(player)
     db.session.commit()
+
     return redirect("/admin")
 
 # ---------------- AUCTION PAGE ----------------
