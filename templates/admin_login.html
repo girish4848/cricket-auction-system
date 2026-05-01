@@ -12,9 +12,18 @@
     <div class="login-panel">
       {% include 'includes/brand_bar.html' %}
       <h1 style="font-size:1.15rem;color:var(--gold-soft);margin-bottom:0.25rem;">Admin access</h1>
+      {% if multi_admin_login %}
       <p style="color: var(--muted); font-size: 0.9rem;">
-        Use the server password (env <code style="color:var(--gold-soft);">ADMIN_PASSWORD</code>, default <code style="color:var(--gold-soft);">admin</code>).
+        Choose <strong>admin1</strong> or <strong>admin2</strong>, then the password from Render env
+        <code style="color:var(--gold-soft);">ADMIN1_PASSWORD</code> / <code style="color:var(--gold-soft);">ADMIN2_PASSWORD</code>.
+        Both accounts have full control and can be signed in at the same time on different devices.
       </p>
+      {% else %}
+      <p style="color: var(--muted); font-size: 0.9rem;">
+        Use the server password from env <code style="color:var(--gold-soft);">ADMIN_PASSWORD</code>
+        (default <code style="color:var(--gold-soft);">admin</code> locally).
+      </p>
+      {% endif %}
 
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% for category, msg in messages %}
@@ -23,6 +32,14 @@
       {% endwith %}
 
       <form method="post" style="margin-top: 1.25rem;">
+        {% if multi_admin_login %}
+        <label for="username">Admin account</label>
+        <select id="username" name="username" required autocomplete="username">
+          {% for aid in admin_accounts_enabled %}
+          <option value="{{ aid }}" {% if request.form.get('username') == aid or (not request.form.get('username') and loop.first) %}selected{% endif %}>{{ aid }}</option>
+          {% endfor %}
+        </select>
+        {% endif %}
         <label for="password">Password</label>
         <input id="password" name="password" type="password" required autocomplete="current-password">
         <button type="submit" class="btn btn--primary" style="margin-top:1rem;">Unlock admin</button>

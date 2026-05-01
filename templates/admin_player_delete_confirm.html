@@ -32,8 +32,8 @@
       <p>You are about to permanently remove <strong>{{ player.name }}</strong> (category {{ player.category }}, base {{ player.base_price }}). This cannot be undone.</p>
 
       <form method="post">
-        <label for="confirm_password">Admin password</label>
-        <input id="confirm_password" name="confirm_password" type="password" autocomplete="current-password" required placeholder="ADMIN_PASSWORD">
+        <label for="confirm_password">Confirm with your admin password</label>
+        <input id="confirm_password" name="confirm_password" type="password" autocomplete="current-password" required placeholder="{% if multi_admin_login %}Your admin1 / admin2 password{% else %}ADMIN_PASSWORD{% endif %}">
 
         <div class="form-actions" style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:1rem;">
           <button type="submit" class="btn btn--danger">Delete player</button>

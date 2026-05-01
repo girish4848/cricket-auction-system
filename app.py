@@ -40,10 +40,34 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(os.path.join(UPLOAD_FOLDER, CAPTAINS_UPLOAD_SUBDIR), exist_ok=True)
 os.makedirs(os.path.join(UPLOAD_FOLDER, PLAYER_FACE_SUBDIR), exist_ok=True)
 
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin")
+# Admin access:
+# - Dual accounts (recommended on Render): set ADMIN1_PASSWORD and/or ADMIN2_PASSWORD.
+#   Login with username admin1 / admin2 and the matching password. Both can be logged in
+#   at once (separate sessions). Destructive confirmations use that user's password.
+# - Legacy single password: leave ADMIN1_PASSWORD and ADMIN2_PASSWORD unset; then
+#   ADMIN_PASSWORD (default "admin") is the only password — no username field.
+ADMIN_PASSWORD_LEGACY = os.environ.get("ADMIN_PASSWORD", "admin")
+
+
+def _load_admin_accounts() -> dict[str, str]:
+    """Map login name -> password for enabled staff admins."""
+    out: dict[str, str] = {}
+    p1 = os.environ.get("ADMIN1_PASSWORD", "").strip()
+    p2 = os.environ.get("ADMIN2_PASSWORD", "").strip()
+    if p1:
+        out["admin1"] = p1
+    if p2:
+        out["admin2"] = p2
+    return out
+
+
+ADMIN_ACCOUNTS = _load_admin_accounts()
 
 # Remote auction: HOST defaults to 0.0.0.0. Render: set DATABASE_URL (PostgreSQL adds psycopg2-binary).
 # Mount persistent disk on static/uploads if captain/player images must survive redeploys.
+# Real-time: Procfile uses gunicorn -w 1 so all WebSocket clients share one process.
+# If you add more workers/instances, set REDIS_URL and redis so Socket.IO can broadcast
+# across processes (message_queue).
 
 db.init_app(app)
 
@@ -54,10 +78,22 @@ def branding_assets():
     return {"use_gladiators_png": os.path.isfile(png_path)}
 
 
+@app.context_processor
+def admin_ui_context():
+    return {
+        "multi_admin_login": bool(ADMIN_ACCOUNTS),
+        "session_admin_user": session.get("admin_user"),
+    }
+
+
 # Default "threading" is stable for local `py app.py` (Windows-friendly, no Eventlet warning).
 # Production (Gunicorn + eventlet worker): set SOCKETIO_ASYNC_MODE=eventlet — Procfile does this on Linux.
 _socket_async = os.environ.get("SOCKETIO_ASYNC_MODE", "threading")
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode=_socket_async)
+_redis_url = os.environ.get("REDIS_URL")
+_socket_kw: dict = {"cors_allowed_origins": "*", "async_mode": _socket_async}
+if _redis_url:
+    _socket_kw["message_queue"] = _redis_url
+socketio = SocketIO(app, **_socket_kw)
 
 _bid_lock = threading.Lock()
 
@@ -91,8 +127,21 @@ def admin_required():
     return session.get("admin") is True
 
 
+def admin_password_accepted(username: str, password: str) -> bool:
+    if ADMIN_ACCOUNTS:
+        u = (username or "").strip().lower()
+        return u in ADMIN_ACCOUNTS and ADMIN_ACCOUNTS[u] == password
+    return password == ADMIN_PASSWORD_LEGACY
+
+
 def delete_password_ok() -> bool:
-    return request.form.get("confirm_password", "") == ADMIN_PASSWORD
+    pwd = request.form.get("confirm_password", "")
+    if ADMIN_ACCOUNTS:
+        who = session.get("admin_user")
+        if not who or who not in ADMIN_ACCOUNTS:
+            return False
+        return ADMIN_ACCOUNTS[who] == pwd
+    return pwd == ADMIN_PASSWORD_LEGACY
 
 
 def remove_upload_rel(rel) -> None:
@@ -734,17 +783,25 @@ def captain_roster():
 
 @app.route("/admin/login", methods=["GET", "POST"])
 def admin_login():
+    enabled = sorted(ADMIN_ACCOUNTS.keys())
     if request.method == "POST":
-        if request.form.get("password") == ADMIN_PASSWORD:
+        pwd = request.form.get("password") or ""
+        user = (request.form.get("username") or "").strip().lower()
+        if admin_password_accepted(user, pwd):
             session["admin"] = True
+            session["admin_user"] = user if ADMIN_ACCOUNTS else None
             return redirect(url_for("admin_dashboard"))
-        flash("Wrong password", "error")
-    return render_template("admin_login.html")
+        flash("Wrong username or password", "error")
+    return render_template(
+        "admin_login.html",
+        admin_accounts_enabled=enabled,
+    )
 
 
 @app.route("/admin/logout")
 def admin_logout():
     session.pop("admin", None)
+    session.pop("admin_user", None)
     return redirect(url_for("admin_login"))
 
 
@@ -887,7 +944,7 @@ def admin_delete_team(tid):
 
     if request.method == "POST":
         if not delete_password_ok():
-            flash("Wrong admin password — team was not deleted.", "error")
+            flash("Wrong password — team was not deleted.", "error")
             return redirect(url_for("admin_delete_team", tid=tid))
 
         state = AuctionState.query.first()
@@ -1004,7 +1061,7 @@ def admin_delete_player(pid):
 
     if request.method == "POST":
         if not delete_password_ok():
-            flash("Wrong admin password — player was not deleted.", "error")
+            flash("Wrong password — player was not deleted.", "error")
             return redirect(url_for("admin_delete_player", pid=pid))
 
         if player.status == "sold":

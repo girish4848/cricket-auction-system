@@ -12,7 +12,7 @@
   <header class="screen-header">
     {% include 'includes/brand_bar.html' %}
     <nav class="nav-links">
-      <span style="color:var(--muted);font-size:0.8rem;">Admin</span>
+      <span style="color:var(--muted);font-size:0.8rem;">Admin{% if session_admin_user %} · {{ session_admin_user }}{% endif %}</span>
       <a href="{{ url_for('admin_teams') }}">Teams</a>
       <a href="{{ url_for('admin_players') }}">Players</a>
       <a href="{{ url_for('admin_auction') }}">Auction room</a>

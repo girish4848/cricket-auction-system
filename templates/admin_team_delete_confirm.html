@@ -33,8 +33,8 @@
       <p style="color:var(--muted);font-size:0.85rem;">Teams with any assigned players (sold squad) cannot be deleted — remove or reassign players first via the database if needed.</p>
 
       <form method="post">
-        <label for="confirm_password">Admin password</label>
-        <input id="confirm_password" name="confirm_password" type="password" autocomplete="current-password" required placeholder="ADMIN_PASSWORD">
+        <label for="confirm_password">Confirm with your admin password</label>
+        <input id="confirm_password" name="confirm_password" type="password" autocomplete="current-password" required placeholder="{% if multi_admin_login %}Your admin1 / admin2 password{% else %}ADMIN_PASSWORD{% endif %}">
 
         <div class="form-actions" style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:1rem;">
           <button type="submit" class="btn btn--danger">Delete team</button>
