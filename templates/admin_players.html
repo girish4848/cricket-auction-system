@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GPL 3.0 · Players</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <header class="screen-header">
+    {% include 'includes/brand_bar.html' %}
+    <nav class="nav-links">
+      <span style="color:var(--muted);font-size:0.8rem;">Players</span>
+      <a href="{{ url_for('admin_dashboard') }}">Overview</a>
+      <a href="{{ url_for('admin_teams') }}">Teams</a>
+      <a href="{{ url_for('admin_auction') }}">Auction room</a>
+      <a href="{{ url_for('admin_logout') }}">Logout</a>
+    </nav>
+  </header>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    <div class="flash-wrap">
+      {% for category, msg in messages %}
+        <div class="flash flash--{{ 'error' if category == 'error' else 'ok' }}">{{ msg }}</div>
+      {% endfor %}
+    </div>
+  {% endwith %}
+
+  <div class="layout-grid" style="max-width:960px;">
+    <div class="panel">
+      <h2>Add player</h2>
+      <form method="post" enctype="multipart/form-data">
+        <label for="name">Display name</label>
+        <input id="name" name="name" required>
+
+        <label for="category">Category / base price</label>
+        <select id="category" name="category">
+          {% for c, price in category_prices.items() %}
+            <option value="{{ c }}">Category {{ c }} — {{ price }} pts</option>
+          {% endfor %}
+        </select>
+
+        <label for="card">Player card image</label>
+        <input id="card" type="file" name="card" accept="image/*" required>
+
+        <label for="player_photo">Face photo (optional)</label>
+        <input id="player_photo" type="file" name="player_photo" accept="image/*">
+        <p style="color:var(--muted);font-size:0.78rem;margin:0.25rem 0 0;">Square or portrait — used on final squad cards. Card image is still required for the auction.</p>
+
+        <button type="submit" class="btn btn--primary form-actions">Save player</button>
+      </form>
+    </div>
+
+    <div class="panel">
+      <h2>All players</h2>
+      <div class="scroll-panel">
+        {% for p in players %}
+          <div class="card-row card-row--split {% if p.status == 'sold' %}card-row--sold{% endif %}">
+            <div style="flex:1;min-width:200px;">
+              <strong>{{ p.name }}</strong>
+              · Cat {{ p.category }} · Base {{ p.base_price }}
+              {% if p.status == 'sold' %}
+                <span style="color:var(--warning);"> · Sold</span>
+              {% endif %}
+              {% if p.player_card %}
+                <div style="margin-top:0.35rem;">
+                  <img src="{{ url_for('static', filename='uploads/' + p.player_card) }}" alt="" style="max-width:120px;border-radius:8px;">
+                </div>
+              {% endif %}
+              {% if p.player_photo %}
+                <div style="margin-top:0.35rem;display:flex;align-items:center;gap:0.5rem;">
+                  <img src="{{ url_for('static', filename='uploads/' + p.player_photo) }}" alt="" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid rgba(212,175,55,0.35);">
+                  <span style="color:var(--muted);font-size:0.72rem;">Face</span>
+                </div>
+              {% endif %}
+            </div>
+            <div class="card-row-actions">
+              <a href="{{ url_for('admin_edit_player', pid=p.id) }}" class="btn btn--ghost">Edit</a>
+              {% if p.status != 'sold' %}
+                <a href="{{ url_for('admin_delete_player', pid=p.id) }}" class="btn btn--danger">Delete</a>
+              {% endif %}
+            </div>
+          </div>
+        {% else %}
+          <p style="color:var(--muted);">No players yet.</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+{% include 'includes/league_footer.html' %}
+</body>
+</html>

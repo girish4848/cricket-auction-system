@@ -1,183 +1,207 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<title>Live Auction Board</title>
-
-<link rel="stylesheet" href="/static/css/style.css">
-
-<script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
-
-<style>
-
-body {
-    background: #020617;
-    color: white;
-    font-family: Arial;
-}
-
-/* Layout */
-.wrapper {
-    display: flex;
-    gap: 15px;
-    padding: 15px;
-}
-
-/* Panels */
-.panel {
-    background: #1e293b;
-    padding: 15px;
-    border-radius: 10px;
-}
-
-/* sizes */
-.left { flex: 2; }
-.mid { flex: 2; }
-.right { flex: 1; }
-
-/* cards */
-.card {
-    background: #0f172a;
-    padding: 10px;
-    margin-bottom: 10px;
-    border-radius: 8px;
-}
-
-/* mobile */
-@media (max-width: 900px) {
-    .wrapper {
-        flex-direction: column;
-    }
-}
-
-</style>
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GPL 3.0 · Live board</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css">
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script src="{{ url_for('static', filename='js/auction_sounds.js') }}"></script>
 </head>
-
 <body>
+{% from 'includes/macros.html' import captain_face %}
+  <header class="screen-header">
+    {% include 'includes/brand_bar.html' %}
+    <button type="button" class="sound-toggle" data-sound-toggle aria-pressed="true">Sound on</button>
+    <nav class="nav-links">
+      <span style="color:var(--muted);font-size:0.85rem;">Public · no login</span>
+    </nav>
+  </header>
 
-<h1 style="text-align:center;">🏏 LIVE AUCTION BOARD</h1>
-
-<div class="wrapper">
-
-    <!-- LEFT: CURRENT AUCTION -->
-    <div class="panel left">
-
-        <h2>Current Player</h2>
-
-        {% if current_player %}
-
-        <h1>{{ current_player.name }}</h1>
-
-        <img src="/static/uploads/{{ current_player.player_card }}" style="width:100%; max-width:400px;">
-
-        <h3>Base: {{ current_player.base_price }}</h3>
-
-        <h1 style="color:yellow;">
-            Bid: {{ state.current_bid }}
-        </h1>
-
-        <h3>
-            Leading:
-            {% if leading_team %}
-                {{ leading_team.team_name }}
-            {% else %}
-                None
-            {% endif %}
-        </h3>
-
-        <h2 style="color:red;">
-            Timer: <span id="timer">10</span>
-        </h2>
-
-        {% else %}
-        <h2>No Active Auction</h2>
-        {% endif %}
-
+  <div class="layout-grid layout-grid--auction">
+    <div id="lb-hero-lot-panel" class="panel hero-card-wrap hero-card-wrap--auction-lot {% if lot_live %}hero-card-wrap--lot-live{% endif %}">
+      <h2>On the block</h2>
+      <p id="lb-player" style="font-size:clamp(1.25rem,4vw,1.75rem);font-weight:700;">
+        {% if current_player %}{{ current_player.name }}{% else %}Waiting…{% endif %}
+      </p>
+      {% if current_player %}
+      <img id="lb-card" class="auction-lot-card-img" src="{{ url_for('static', filename='uploads/' + current_player.player_card) }}" alt="">
+      {% else %}
+      <img id="lb-card" class="auction-lot-card-img" alt="" style="display:none;">
+      {% endif %}
+      <p style="color:var(--muted);">Base <span id="lb-base">{% if current_player %}{{ current_player.base_price }}{% else %}0{% endif %}</span></p>
+      <p class="bid-display"><span id="lb-bid">{{ state.current_bid }}</span></p>
+      <p>Leading: <strong id="lb-leader">{% if leading_team %}{{ leading_team.team_name }}{% else %}—{% endif %}</strong></p>
+      <p class="timer-display"><span id="lb-timer">{% if timer_live is not none %}{{ timer_live }} s{% else %}—{% endif %}</span></p>
+      <p style="color:var(--muted);font-size:0.85rem;">Next raise +<span id="lb-inc">0</span> · Status <span id="lb-status">{{ state.auction_status }}</span></p>
     </div>
 
-    <!-- MIDDLE: TEAMS -->
-    <div class="panel mid">
-
-        <h2>Teams Status</h2>
-
-        {% for t in teams %}
-
-        <div class="card">
-            <b>{{ t.team_name }}</b><br>
-            Points: {{ t.remaining_points }}<br>
-            Players: {{ t.players_bought }}/7
-        </div>
-
-        {% endfor %}
-
+    <div class="panel scroll-panel">
+      <h2>Teams</h2>
+      <table class="table-mini">
+        <thead>
+          <tr><th></th><th>Team</th><th>Pts left</th><th>Squad</th><th>Ready</th></tr>
+        </thead>
+        <tbody id="lb-teams-body">
+          {% for t in teams %}
+          <tr>
+            <td>{{ captain_face(t) }}</td>
+            <td><strong>{{ t.team_name }}</strong></td>
+            <td>{{ t.remaining_points }}</td>
+            <td>{{ t.players_bought }}/7</td>
+            <td><span class="ready-dot {% if t.is_ready %}ready-dot--on{% endif %}"></span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
 
-    <!-- RIGHT: SOLD PLAYERS -->
-    <div class="panel right">
-
-        <h2>Sold Players</h2>
-
+    <div class="panel scroll-panel">
+      <h2>Sold players</h2>
+      <div id="lb-sold">
         {% for p in sold_players %}
-
-        <div class="card">
-            <b>{{ p.name }}</b><br>
-            Sold for: {{ p.sold_price }}<br>
-
-            Team ID: {{ p.team_id }}
-        </div>
-
+          <div class="card-row">
+            {{ p.name }} · {{ p.sold_price }} pts
+            {% for t in teams %}{% if t.id == p.team_id %}→ {{ t.team_name }}{% endif %}{% endfor %}
+          </div>
+        {% else %}
+          <p style="color:var(--muted);font-size:0.9rem;">None yet.</p>
         {% endfor %}
-
+      </div>
     </div>
 
-</div>
+    <div class="panel auction-span-full scroll-panel">
+      <h2>Unsold pool</h2>
+      <div id="lb-unsold" class="unsold-chips"></div>
+      <h2 style="margin-top:1rem;">Squads (buys by team)</h2>
+      <div id="lb-squad-board" class="squad-mini-board"></div>
+    </div>
+  </div>
 
-<!-- SOCKET -->
 <script>
-
 var socket = io();
-
+if (window.AuctionAudio) AuctionAudio.bindSocket(socket);
 socket.emit("request_state");
 
-/* RECEIVE FULL AUCTION STATE */
-socket.on("auction_state_update", function(data){
+function lbCaptainCell(t) {
+  var ph = t.captain_photo;
+  var nm = t.name || "?";
+  var ini = nm.charAt(0).toUpperCase();
+  if (ph) {
+    return '<img class="cap-avatar" src="/static/uploads/' + ph + '" alt="">';
+  }
+  return '<span class="cap-avatar cap-avatar--placeholder">' + ini + "</span>";
+}
 
-    // PLAYER
-    if(data.player){
-        if(document.getElementById("player")){
-            document.getElementById("player").innerText = data.player.name;
-        }
+function renderLbUnsold(unsold) {
+  var host = document.getElementById("lb-unsold");
+  if (!host) return;
+  host.innerHTML = "";
+  if (!unsold || !unsold.length) {
+    host.innerHTML = '<span style="color:var(--muted);font-size:0.85rem;">No unsold players.</span>';
+    return;
+  }
+  unsold.forEach(function (p) {
+    var span = document.createElement("span");
+    span.className = "unsold-chip";
+    span.textContent = p.name + " · " + p.base_price + " pts";
+    host.appendChild(span);
+  });
+}
 
-        if(document.getElementById("card")){
-            document.getElementById("card").src = "/static/uploads/" + data.player.card;
-        }
-
-        if(document.getElementById("base")){
-            document.getElementById("base").innerText = data.player.base_price;
-        }
+function renderLbSquads(teams) {
+  var host = document.getElementById("lb-squad-board");
+  if (!host || !teams) return;
+  host.innerHTML = "";
+  teams.forEach(function (t) {
+    var col = document.createElement("div");
+    col.className = "squad-mini-col";
+    var h = document.createElement("h3");
+    h.className = "squad-mini-col__title";
+    h.textContent = t.name;
+    col.appendChild(h);
+    var ul = document.createElement("ul");
+    ul.className = "squad-mini-col__list";
+    var squad = t.squad || [];
+    if (!squad.length) {
+      var li0 = document.createElement("li");
+      li0.className = "squad-mini-col__empty";
+      li0.textContent = "No buys yet";
+      ul.appendChild(li0);
+    } else {
+      squad.forEach(function (p) {
+        var li = document.createElement("li");
+        li.textContent = p.name + " · " + p.price + " pts";
+        ul.appendChild(li);
+      });
     }
+    col.appendChild(ul);
+    host.appendChild(col);
+  });
+}
 
-    // BID
-    if(document.getElementById("bid")){
-        document.getElementById("bid").innerText = data.bid;
-    }
+socket.on("auction_state_update", function (data) {
+  var nameEl = document.getElementById("lb-player");
+  var img = document.getElementById("lb-card");
+  var hero = document.getElementById("lb-hero-lot-panel");
+  var lotLive = !!(data.full_auction_started && data.player && (data.status === "waiting" || data.status === "running"));
+  if (hero) hero.classList.toggle("hero-card-wrap--lot-live", lotLive);
 
-    // LEADING TEAM
-    if(document.getElementById("leader")){
-        document.getElementById("leader").innerText = data.leading_team || "-";
-    }
+  if (data.player) {
+    nameEl.textContent = data.player.name;
+    img.src = "/static/uploads/" + data.player.card;
+    img.style.display = "block";
+    document.getElementById("lb-base").textContent = data.player.base_price;
+  } else {
+    nameEl.textContent = "Waiting…";
+    img.style.display = "none";
+    document.getElementById("lb-base").textContent = "0";
+  }
 
-    // TIMER
-    if(document.getElementById("timer")){
-        document.getElementById("timer").innerText = data.timer;
-    }
+  document.getElementById("lb-bid").textContent = data.bid;
+  document.getElementById("lb-leader").textContent = data.leading_team || "—";
+  document.getElementById("lb-timer").textContent =
+    data.timer != null ? data.timer + " s" : "—";
+  document.getElementById("lb-inc").textContent = data.next_increment || 0;
+  document.getElementById("lb-status").textContent = data.status;
 
-    // (OPTIONAL DEBUG)
-    console.log("Teams:", data.teams);
-    console.log("Sold:", data.sold);
+  var tb = document.getElementById("lb-teams-body");
+  if (tb && data.teams) {
+    tb.innerHTML = "";
+    data.teams.forEach(function (t) {
+      var tr = document.createElement("tr");
+      tr.innerHTML =
+        "<td>" +
+        lbCaptainCell(t) +
+        "</td><td><strong>" +
+        t.name +
+        "</strong></td><td>" +
+        t.points +
+        "</td><td>" +
+        t.players +
+        "/7</td><td><span class=\"ready-dot" +
+        (t.ready ? " ready-dot--on" : "") +
+        "\"></span></td>";
+      tb.appendChild(tr);
+    });
+  }
+
+  renderLbUnsold(data.unsold);
+  renderLbSquads(data.teams);
+
+  var soldBox = document.getElementById("lb-sold");
+  if (soldBox && data.sold) {
+    soldBox.innerHTML = "";
+    data.sold.forEach(function (s) {
+      var div = document.createElement("div");
+      div.className = "card-row";
+      div.textContent = s.name + " · " + s.price + " pts → " + (s.team || "?");
+      soldBox.appendChild(div);
+    });
+  }
 });
-
 </script>
-
+{% include 'includes/league_footer.html' %}
 </body>
 </html>

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GPL 3.0 · Edit team</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+{% from 'includes/macros.html' import captain_face %}
+  <header class="screen-header">
+    {% include 'includes/brand_bar.html' %}
+    <nav class="nav-links">
+      <span style="color:var(--muted);font-size:0.8rem;">Edit team</span>
+      <a href="{{ url_for('admin_teams') }}">Teams</a>
+      <a href="{{ url_for('admin_dashboard') }}">Overview</a>
+      <a href="{{ url_for('admin_players') }}">Players</a>
+      <a href="{{ url_for('admin_auction') }}">Auction room</a>
+      <a href="{{ url_for('admin_logout') }}">Logout</a>
+    </nav>
+  </header>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    <div class="flash-wrap">
+      {% for category, msg in messages %}
+        <div class="flash flash--{{ 'error' if category == 'error' else 'ok' }}">{{ msg }}</div>
+      {% endfor %}
+    </div>
+  {% endwith %}
+
+  <div class="layout-grid" style="max-width:640px;">
+    <div class="panel">
+      <h2>Edit team</h2>
+      <p style="color:var(--muted);font-size:0.85rem;margin-top:0;">
+        {{ captain_face(team) }}
+        <span style="vertical-align:middle;margin-left:0.35rem;">{{ team.team_name }}</span>
+      </p>
+      <form method="post" enctype="multipart/form-data">
+        <label for="team_name">Team name</label>
+        <input id="team_name" name="team_name" value="{{ team.team_name }}" required>
+
+        <label for="username">Captain username</label>
+        <input id="username" name="username" value="{{ team.username }}" autocomplete="off" required>
+
+        <label for="password">Captain password</label>
+        <input id="password" name="password" type="text" autocomplete="off" placeholder="Leave blank to keep current password">
+
+        <label for="captain_photo">Replace captain photo</label>
+        <input id="captain_photo" name="captain_photo" type="file" accept="image/*">
+        <p style="color:var(--muted);font-size:0.8rem;margin:0.35rem 0 0;">Optional — upload only if you want a new photo.</p>
+
+        <div class="form-actions" style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:1rem;">
+          <button type="submit" class="btn btn--primary">Save changes</button>
+          <a href="{{ url_for('admin_teams') }}" class="btn btn--ghost">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+{% include 'includes/league_footer.html' %}
+</body>
+</html>

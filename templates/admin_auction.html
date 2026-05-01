@@ -1,201 +1,354 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<title>Auction Control Room</title>
-
-<style>
-
-body {
-    margin: 0;
-    font-family: Arial;
-    background: #020617;
-    color: white;
-}
-
-.header {
-    text-align: center;
-    padding: 10px;
-    background: #0f172a;
-}
-
-/* layout */
-.container {
-    display: flex;
-    gap: 15px;
-    padding: 15px;
-}
-
-/* panels */
-.panel {
-    background: #1e293b;
-    padding: 15px;
-    border-radius: 10px;
-}
-
-/* sizes */
-.left { flex: 1; height: 85vh; overflow-y: auto; }
-.center { flex: 2; text-align: center; }
-.right { flex: 1; height: 85vh; overflow-y: auto; }
-
-/* cards */
-.card {
-    background: #0f172a;
-    padding: 10px;
-    margin-bottom: 10px;
-    border-radius: 8px;
-}
-
-/* buttons */
-button {
-    background: #22c55e;
-    border: none;
-    padding: 8px 10px;
-    color: white;
-    cursor: pointer;
-    border-radius: 5px;
-    width: 100%;
-    margin-top: 5px;
-}
-
-button:hover {
-    background: #16a34a;
-}
-
-.sell {
-    background: #ef4444;
-}
-
-.sell:hover {
-    background: #dc2626;
-}
-
-/* images */
-img {
-    max-width: 100%;
-    border-radius: 10px;
-}
-
-/* links */
-a {
-    color: #38bdf8;
-    text-decoration: none;
-}
-
-/* mobile */
-@media (max-width: 900px) {
-    .container {
-        flex-direction: column;
-    }
-
-    .left, .right {
-        height: auto;
-    }
-}
-
-</style>
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GPL 3.0 · Control room</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css">
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script src="{{ url_for('static', filename='js/auction_sounds.js') }}"></script>
 </head>
-
 <body>
+{% from 'includes/macros.html' import captain_face %}
+  <header class="screen-header">
+    {% include 'includes/brand_bar.html' %}
+    <button type="button" class="sound-toggle" data-sound-toggle aria-pressed="true">Sound on</button>
+    <nav class="nav-links">
+      <a href="{{ url_for('admin_dashboard') }}">Overview</a>
+      <a href="{{ url_for('admin_teams') }}">Teams</a>
+      <a href="{{ url_for('admin_players') }}">Players</a>
+      <a href="{{ url_for('live_board') }}" target="_blank" rel="noopener">Live board</a>
+      <a href="{{ url_for('auction_finals') }}">Final squads</a>
+      <a href="{{ url_for('admin_logout') }}">Logout</a>
+    </nav>
+  </header>
 
-<div class="header">
-    <h1>🔥 Auction Control Room</h1>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    <div class="flash-wrap">
+      {% for category, msg in messages %}
+        <div class="flash flash--{{ 'error' if category == 'error' else 'ok' }}">{{ msg }}</div>
+      {% endfor %}
+    </div>
+  {% endwith %}
 
-    <a href="/admin">← Dashboard</a> |
-    <a href="/live" target="_blank">Live Screen</a> |
-    <a href="/leaderboard" target="_blank">Leaderboard</a>
-</div>
+  {% if state.auction_complete %}
+    <div class="flash-wrap">
+      <div class="flash flash--ok">
+        This auction run is <strong>complete</strong>.
+        <a href="{{ url_for('auction_finals') }}">Open final squads</a>
+        — then use <strong>Restart full auction</strong> below for a new run.
+      </div>
+    </div>
+  {% endif %}
 
-<div class="container">
+  <div class="panel finals-admin-panel no-print" style="max-width:1100px;margin:0 auto 1rem;padding:0.85rem 1rem;">
+    <p style="color:var(--muted);font-size:0.82rem;margin:0;line-height:1.45;">
+      <strong>Final squad cards:</strong> each captain picks <strong>Multi</strong> (default blended background) or solid <strong>Blue / Red / Yellow</strong> on the Captain console. Card exports use that choice. While the auction is live, use <strong>Ready / Off</strong> next to each team below to mark captains ready.
+    </p>
+  </div>
 
-    <!-- LEFT: PLAYERS -->
-    <div class="panel left">
-
-        <h2>Available Players</h2>
-
-        {% for p in players %}
-
-        <div class="card">
-
-            <b>{{ p.name }}</b><br>
-            Base Price: {{ p.base_price }}<br>
-
-            {% if p.status == "sold" %}
-                <span style="color:yellow;">SOLD</span>
-            {% else %}
-                <a href="/start_player/{{ p.id }}">
-                    <button>Start Auction</button>
-                </a>
-            {% endif %}
-
+  <div class="layout-grid layout-grid--auction">
+    <!-- Available players -->
+    <div class="panel scroll-panel">
+      <h2>Available pool</h2>
+      <p style="color:var(--muted);font-size:0.82rem;margin:0 0 0.75rem;">
+        Opening bid equals each player's <strong>base price</strong> — first captain claims at base; others must raise.
+      </p>
+      <p style="color:var(--muted);font-size:0.85rem;margin:0 0 0.75rem;">
+        Full auction: {% if state.full_auction_started %}<strong style="color:var(--accent);">live</strong>{% else %}<strong>not started</strong>{% endif %}
+        · Captains ready (live): <span id="adm-ready">{{ 'yes' if ready_all else 'no' }}</span>
+      </p>
+      <a href="{{ url_for('start_full_auction') }}" class="btn btn--ghost" style="width:auto;display:inline-flex;margin-bottom:0.5rem;">Start full auction</a>
+      <a href="{{ url_for('pick_random_player') }}" class="btn btn--ghost" style="width:auto;display:inline-flex;margin-bottom:0.5rem;">Pick random unsold</a>
+      <p style="color:var(--muted);font-size:0.76rem;margin:0 0 0.65rem;line-height:1.35;">
+        Random pool uses players still <strong>eligible for random</strong>. Anyone marked <strong>unsold</strong> from the block is skipped until every eligible unsold player has been cycled; then they re-enter automatically.
+      </p>
+      <form method="post" action="{{ url_for('admin_restart_full_auction') }}" style="margin-bottom:0.85rem;" onsubmit="return confirm('Reset all teams to 10000 pts, clear squads, return every player unsold, and wipe sale records for this run?');">
+        <button type="submit" class="btn btn--danger" style="width:auto;display:inline-flex;font-size:0.85rem;padding:0.45rem 0.75rem;">Restart full auction</button>
+      </form>
+      {% for p in players %}
+        <div class="card-row">
+          <strong>{{ p.name }}</strong> · base {{ p.base_price }}
+          <a href="{{ url_for('start_player', pid=p.id) }}" style="display:block;margin-top:0.35rem;">
+            <span class="btn btn--primary" style="width:auto;display:inline-flex;font-size:0.85rem;padding:0.4rem 0.65rem;">Start this player</span>
+          </a>
         </div>
-
-        {% endfor %}
-
+      {% else %}
+        <p style="color:var(--muted);">No unsold players left.</p>
+      {% endfor %}
     </div>
 
-    <!-- CENTER: CURRENT AUCTION -->
-    <div class="panel center">
+    <!-- Current lot -->
+    <div id="adm-hero-lot-panel" class="panel hero-card-wrap hero-card-wrap--auction-lot {% if lot_live %}hero-card-wrap--lot-live{% endif %}">
+      <h2>Current lot</h2>
 
-        <h2>Current Auction</h2>
+      {% if current_player %}
+        <div id="adm-live-block">
+          <p id="adm-player-name" style="font-size:1.35rem;font-weight:700;margin:0.25rem 0;">{{ current_player.name }}</p>
+          <img id="adm-card" class="auction-lot-card-img" src="{{ url_for('static', filename='uploads/' + current_player.player_card) }}" alt="">
+          <p style="color:var(--muted);font-size:0.9rem;">Category {{ current_player.category }} · Base {{ current_player.base_price }}</p>
+          <p class="bid-display">Bid <span id="adm-bid">{{ state.current_bid }}</span></p>
+          <p style="margin:0;">Leading: <strong id="adm-leader">{% if state.current_team_id %}{% for t in teams %}{% if t.id == state.current_team_id %}{{ t.team_name }}{% endif %}{% endfor %}{% else %}—{% endif %}</strong></p>
+          <p class="timer-display"><span id="adm-timer">{% if timer_live is not none %}{{ timer_live }} s{% else %}—{% endif %}</span></p>
+          <p style="color:var(--muted);font-size:0.85rem;">Next click bid step: +<span id="adm-inc">{{ next_increment }}</span></p>
+          <span class="status-pill">Status: <span id="adm-status">{{ state.auction_status }}</span></span>
 
-        {% if current_player %}
+          <div class="btn-row" style="margin-top:1rem;">
+            <form method="post" action="{{ url_for('sell_current') }}">
+              <button type="submit" class="btn btn--danger">Sell at current bid</button>
+            </form>
+            <form method="post" action="{{ url_for('unsold') }}">
+              <button type="submit" class="btn btn--ghost">Mark unsold</button>
+            </form>
+          </div>
 
-        <h1>{{ current_player.name }}</h1>
+          <form method="post" action="{{ url_for('manual_sell') }}" style="margin-top:1rem;text-align:left;">
+            <input type="hidden" name="player_id" value="{{ current_player.id }}">
+            <label for="manual_team">Manual sell — pick team</label>
+            <select id="manual_team" name="team_id" required>
+              {% for t in teams %}
+                <option value="{{ t.id }}">{{ t.team_name }}</option>
+              {% endfor %}
+            </select>
+            <label for="manual_amt">Amount (≥ base and ≥ current bid if any, ≤ team max)</label>
+            <input id="manual_amt" name="amount" type="number" min="{{ [current_player.base_price, state.current_bid]|max }}" required>
+            <button type="submit" class="btn btn--primary">Sell at this price</button>
+          </form>
 
-        <img src="/static/uploads/{{ current_player.player_card }}" style="width:100%; max-width:400px;">
+          <a href="{{ url_for('reset_lot') }}" style="display:block;margin-top:0.75rem;">
+            <span class="btn btn--ghost">Reset bids (keep player)</span>
+          </a>
 
-
-        <h3>Base Price: {{ current_player.base_price }}</h3>
-
-        <h1 style="color:yellow;">
-            Current Bid: {{ state.current_bid }}
-        </h1>
-
-        <h3>
-            Leading Team ID: {{ state.current_team_id }}
-        </h3>
-
-        <br><br>
-
-        <a href="/sell_player">
-            <button class="sell">SELL PLAYER</button>
-        </a>
-
-        {% else %}
-
-        <h2>No Active Auction</h2>
-
-        {% endif %}
-
-    </div>
-
-    <!-- RIGHT: TEAM STATUS -->
-    <div class="panel right">
-
-        <h2>Teams Status</h2>
-
-        {% for t in teams %}
-
-        {% set reserve, max_bid, needed = get_team_limits(t) %}
-
-        <div class="card">
-
-            <b>{{ t.team_name }}</b><br><br>
-
-            💰 Points: {{ t.remaining_points }}<br>
-            👤 Players: {{ t.players_bought }}/7<br>
-            📌 Needed: {{ needed }}<br>
-            🛑 Reserve: {{ reserve }}<br>
-            🚀 Max Bid: {{ max_bid }}
-
+          <form method="post" action="{{ url_for('undo_last_sale') }}" style="margin-top:0.75rem;">
+            <button type="submit" class="btn btn--ghost">Undo last sale</button>
+          </form>
         </div>
-
-        {% endfor %}
-
+      {% else %}
+        <div id="adm-live-block">
+          <p style="color:var(--muted);">No player on the block. Choose someone from the pool.</p>
+          <p class="bid-display" style="opacity:0;">&nbsp;</p>
+        </div>
+      {% endif %}
     </div>
 
-</div>
+    <!-- Teams -->
+    <div class="panel scroll-panel">
+      <h2>Teams live</h2>
+      <table class="table-mini" id="adm-teams-table">
+        <thead>
+          <tr><th></th><th>Team</th><th>Pts</th><th>Squad</th><th>Max bid</th><th>Rsv</th><th>Rdy</th></tr>
+        </thead>
+        <tbody>
+          {% for t in teams %}
+            {% set reserve, max_bid, needed = get_team_limits(t) %}
+            <tr data-team="{{ t.id }}" class="{% if t.is_ready %}adm-team-row--ready{% endif %}">
+              <td>{{ captain_face(t) }}</td>
+              <td><strong>{{ t.team_name }}</strong></td>
+              <td>{{ t.remaining_points }}</td>
+              <td>{{ t.players_bought }}/7</td>
+              <td>{{ max_bid }}</td>
+              <td>{{ reserve }}</td>
+              <td class="adm-rdy-cell">
+                <div class="adm-rdy-wrap">
+                  <span class="adm-ready-indicator">
+                    <span class="ready-dot {% if t.is_ready %}ready-dot--on{% endif %}" aria-hidden="true"></span>
+                    <span class="adm-ready-text">{{ 'Ready' if t.is_ready else 'Off' }}</span>
+                  </span>
+                  {% if state.full_auction_started and not state.auction_complete %}
+                  <div class="adm-rdy-btns">
+                    <form method="post" action="{{ url_for('admin_team_ready', tid=t.id) }}" style="margin:0;">
+                      <input type="hidden" name="ready" value="1">
+                      <button type="submit" class="btn btn--ghost" style="width:auto;margin:0;padding:0.25rem 0.45rem;font-size:0.68rem;">Ready</button>
+                    </form>
+                    <form method="post" action="{{ url_for('admin_team_ready', tid=t.id) }}" style="margin:0;">
+                      <input type="hidden" name="ready" value="0">
+                      <button type="submit" class="btn btn--ghost" style="width:auto;margin:0;padding:0.25rem 0.45rem;font-size:0.68rem;">Off</button>
+                    </form>
+                  </div>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <p style="color:var(--muted);font-size:0.8rem;margin-top:0.75rem;">
+        Reserve keeps 100 pts × empty slots. Timer runs only after the first bid and resets to {{ timer_seconds }}s on each new bid.
+      </p>
+    </div>
 
+    <div class="panel auction-span-full scroll-panel">
+      <h2>Unsold pool</h2>
+      <div id="adm-unsold-chips" class="unsold-chips"></div>
+
+      <h2 style="margin-top:1rem;">Squads — buys by team</h2>
+      <div id="adm-squad-board" class="squad-mini-board"></div>
+
+      <h2 style="margin-top:1.25rem;">Sales audit</h2>
+      <p style="color:var(--muted);font-size:0.82rem;margin-top:0;">Undo any completed sale or edit buyer / price.</p>
+      {% if sold_players %}
+      <table class="table-mini" style="margin-top:0.5rem;">
+        <thead>
+          <tr><th>Player</th><th>Price</th><th>Team</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for p in sold_players %}
+          <tr>
+            <td><strong>{{ p.name }}</strong></td>
+            <td>{{ p.sold_price }} pts</td>
+            <td>{% for t in teams %}{% if t.id == p.team_id %}{{ t.team_name }}{% endif %}{% endfor %}</td>
+            <td>
+              <form method="post" action="{{ url_for('admin_undo_sale', pid=p.id) }}" style="display:inline;">
+                <button type="submit" class="btn btn--ghost" style="width:auto;margin:0;padding:0.35rem 0.55rem;font-size:0.78rem;">Undo sale</button>
+              </form>
+            </td>
+          </tr>
+          <tr>
+            <td colspan="4" style="padding-top:0;border-bottom:1px solid var(--border);padding-bottom:0.65rem;">
+              <form method="post" action="{{ url_for('admin_edit_sale', pid=p.id) }}" style="display:flex;flex-wrap:wrap;gap:0.45rem;align-items:center;font-size:0.82rem;">
+                <span style="color:var(--muted);">Edit sale →</span>
+                <select name="team_id" required style="width:auto;min-width:140px;margin:0;">
+                  {% for t in teams %}
+                  <option value="{{ t.id }}" {% if t.id == p.team_id %}selected{% endif %}>{{ t.team_name }}</option>
+                  {% endfor %}
+                </select>
+                <input type="number" name="amount" value="{{ p.sold_price }}" required min="{{ p.base_price }}" style="width:96px;margin:0;">
+                <button type="submit" class="btn btn--primary" style="width:auto;margin:0;padding:0.35rem 0.6rem;font-size:0.78rem;">Save</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p style="color:var(--muted);font-size:0.9rem;">No sales yet.</p>
+      {% endif %}
+    </div>
+  </div>
+
+<script>
+(function () {
+  var socket = io();
+  if (window.AuctionAudio) AuctionAudio.bindSocket(socket);
+  socket.emit("request_state");
+
+  function $(sel) { return document.querySelector(sel); }
+
+  function capCellHtml(t) {
+    var ph = t.captain_photo;
+    var nm = t.name || "?";
+    var initial = nm.charAt(0).toUpperCase();
+    if (ph) {
+      return '<img class="cap-avatar" src="/static/uploads/' + ph + '" alt="">';
+    }
+    return '<span class="cap-avatar cap-avatar--placeholder">' + initial + "</span>";
+  }
+
+  function renderAdmUnsold(unsold) {
+    var host = document.getElementById("adm-unsold-chips");
+    if (!host) return;
+    host.innerHTML = "";
+    if (!unsold || !unsold.length) {
+      host.innerHTML = '<span style="color:var(--muted);font-size:0.85rem;">No unsold players.</span>';
+      return;
+    }
+    unsold.forEach(function (p) {
+      var span = document.createElement("span");
+      span.className = "unsold-chip";
+      span.textContent = p.name + " · " + p.base_price + " pts";
+      host.appendChild(span);
+    });
+  }
+
+  function renderAdmSquads(teams) {
+    var host = document.getElementById("adm-squad-board");
+    if (!host || !teams) return;
+    host.innerHTML = "";
+    teams.forEach(function (t) {
+      var col = document.createElement("div");
+      col.className = "squad-mini-col";
+      var h = document.createElement("h3");
+      h.className = "squad-mini-col__title";
+      h.textContent = t.name;
+      col.appendChild(h);
+      var ul = document.createElement("ul");
+      ul.className = "squad-mini-col__list";
+      var squad = t.squad || [];
+      if (!squad.length) {
+        var li0 = document.createElement("li");
+        li0.className = "squad-mini-col__empty";
+        li0.textContent = "No buys yet";
+        ul.appendChild(li0);
+      } else {
+        squad.forEach(function (p) {
+          var li = document.createElement("li");
+          li.textContent = p.name + " · " + p.price + " pts";
+          ul.appendChild(li);
+        });
+      }
+      col.appendChild(ul);
+      host.appendChild(col);
+    });
+  }
+
+  socket.on("auction_state_update", function (data) {
+    var r = document.getElementById("adm-ready");
+    if (r) r.textContent = data.captains_ready ? "yes" : "no";
+
+    var hero = document.getElementById("adm-hero-lot-panel");
+    var admLotLive = !!(data.player && (data.status === "waiting" || data.status === "running"));
+    if (hero) hero.classList.toggle("hero-card-wrap--lot-live", admLotLive);
+
+    if (data.player) {
+      var nameEl = document.getElementById("adm-player-name");
+      var imgEl = document.getElementById("adm-card");
+      if (nameEl) nameEl.textContent = data.player.name;
+      if (imgEl) {
+        imgEl.src = "/static/uploads/" + data.player.card;
+        imgEl.style.display = "block";
+      }
+      var bidEl = document.getElementById("adm-bid");
+      if (bidEl) bidEl.textContent = data.bid;
+      var leadEl = document.getElementById("adm-leader");
+      if (leadEl) leadEl.textContent = data.leading_team || "—";
+      var timerEl = document.getElementById("adm-timer");
+      if (timerEl) timerEl.textContent = data.timer != null ? data.timer + " s" : "—";
+      var incEl = document.getElementById("adm-inc");
+      if (incEl) incEl.textContent = data.next_increment;
+      var stEl = document.getElementById("adm-status");
+      if (stEl) stEl.textContent = data.status;
+    }
+
+    if (data.teams && data.teams.length) {
+      data.teams.forEach(function (t) {
+        var row = document.querySelector('tr[data-team="' + t.id + '"]');
+        if (!row) return;
+        var cells = row.querySelectorAll("td");
+        if (cells.length >= 7) {
+          cells[0].innerHTML = capCellHtml(t);
+          cells[1].innerHTML = "<strong>" + t.name + "</strong>";
+          cells[2].textContent = t.points;
+          cells[3].textContent = t.players + "/7";
+          cells[4].textContent = t.max_bid;
+          cells[5].textContent = t.reserve;
+          row.classList.toggle("adm-team-row--ready", !!t.ready);
+          var ind = row.querySelector(".adm-ready-indicator");
+          if (ind) {
+            var dot = ind.querySelector(".ready-dot");
+            var txt = ind.querySelector(".adm-ready-text");
+            if (dot) dot.classList.toggle("ready-dot--on", !!t.ready);
+            if (txt) txt.textContent = t.ready ? "Ready" : "Off";
+          }
+        }
+      });
+    }
+
+    renderAdmUnsold(data.unsold);
+    renderAdmSquads(data.teams);
+  });
+})();
+</script>
+{% include 'includes/league_footer.html' %}
 </body>
 </html>

@@ -1,212 +1,333 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<title>Live Auction</title>
-
-<link rel="stylesheet" href="/static/css/style.css">
-
-<script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
-
-<style>
-
-/* layout */
-.container {
-    display: flex;
-    gap: 15px;
-    padding: 15px;
-}
-
-/* main card */
-.main {
-    flex: 2;
-    background: #1e293b;
-    padding: 20px;
-    border-radius: 10px;
-    text-align: center;
-}
-
-/* side card */
-.side {
-    flex: 1;
-    background: #0f172a;
-    padding: 15px;
-    border-radius: 10px;
-}
-
-/* buttons */
-button {
-    background: #22c55e;
-    border: none;
-    padding: 10px;
-    color: white;
-    border-radius: 6px;
-    cursor: pointer;
-    width: 100%;
-    margin-top: 8px;
-}
-
-button:hover {
-    background: #16a34a;
-}
-
-/* input */
-input {
-    width: 100%;
-    padding: 10px;
-    margin-top: 8px;
-    border-radius: 6px;
-    border: none;
-}
-
-/* image */
-img {
-    border-radius: 10px;
-    margin-top: 10px;
-    max-width: 100%;
-}
-
-/* mobile */
-@media (max-width: 900px) {
-    .container {
-        flex-direction: column;
-    }
-}
-
-</style>
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GPL 3.0 · {{ team.team_name }}</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css">
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script src="{{ url_for('static', filename='js/auction_sounds.js') }}"></script>
 </head>
-
 <body>
+{% from 'includes/macros.html' import captain_face %}
+  <header class="screen-header">
+    {% include 'includes/brand_bar.html' %}
+    <div class="team-cell-cap" style="flex:0 1 auto;">
+      {{ captain_face(team, 'cap-avatar--header') }}
+      <div style="text-align:left;line-height:1.2;">
+        <div style="font-weight:800;color:var(--gold-soft);font-size:clamp(0.9rem,2.5vw,1.05rem);">{{ team.team_name }}</div>
+        <div style="font-size:0.72rem;color:var(--muted);">Captain</div>
+      </div>
+    </div>
+    <button type="button" class="sound-toggle" data-sound-toggle aria-pressed="true">Sound on</button>
+    <nav class="nav-links">
+      <span style="color:var(--muted);font-size:0.9rem;">Captain console</span>
+      <a href="{{ url_for('captain_roster') }}">All players</a>
+      <a href="{{ url_for('logout') }}">Logout</a>
+    </nav>
+  </header>
 
-<div class="container">
+  <div id="toast" class="toast"></div>
 
-    <!-- MAIN AUCTION AREA -->
-    <div class="main">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="flash-wrap" style="max-width:1100px;margin:0 auto;padding:0 1rem;">
+      {% for category, msg in messages %}
+        <div class="flash flash--{{ 'error' if category == 'error' else 'ok' }}">{{ msg }}</div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  {% endwith %}
 
-        <h2>{{ team.team_name }}</h2>
+  <div id="auction-complete-banner" class="flash flash--ok" style="display:none;max-width:1100px;margin:0.75rem auto 0;padding:0.65rem 1rem;text-align:center;">
+    Auction finished — squads are finalized. Thanks for playing!
+  </div>
 
-        <h1 id="player">Waiting for player...</h1>
+  <div class="layout-grid layout-grid--auction">
+    <div class="panel">
+      <h2>Your squad budget</h2>
+      <p><strong id="cap-points">{{ team.remaining_points }}</strong> pts remaining</p>
+      <p style="color:var(--muted);font-size:0.9rem;">Players: <span id="cap-bought">{{ team.players_bought }}</span>/7 · Need slots: <span id="cap-needed">{{ needed }}</span></p>
+      <p style="font-size:0.85rem;">Reserve (held): <strong id="cap-reserve">{{ reserve }}</strong></p>
+      <p style="font-size:0.85rem;">Your max bid now: <strong id="cap-max">{{ max_bid }}</strong></p>
+      <hr style="border:none;border-top:1px solid var(--border);margin:1rem 0;">
+      <h2>Ready gate</h2>
+      <p style="color:var(--muted);font-size:0.85rem;">Mark ready after each player so the admin can start the next lot.</p>
+      <div class="btn-row">
+        <button type="button" class="btn btn--primary" id="btn-ready-on">I'm ready</button>
+        <button type="button" class="btn btn--ghost" id="btn-ready-off">Not ready</button>
+      </div>
+      <p style="margin-top:0.75rem;font-size:0.85rem;">Your status: <span id="cap-ready-dot" class="ready-dot"></span> <span id="cap-ready-label">off</span></p>
 
-        <img id="card" style="width:100%; max-width:350px;">
-
-        <h3>Base Price: <span id="base">0</span></h3>
-
-        <h1 style="color:yellow;">
-            Current Bid: <span id="bid">0</span>
-        </h1>
-
-        <h2 style="color:red;">
-            Timer: <span id="timer">10</span>
-        </h2>
-
-        <h3>
-            Leading Team: <span id="leader">-</span>
-        </h3>
-
-        <hr>
-
-        <!-- BIDDING -->
-        <button onclick="bid()">+ BID</button>
-
-        <input id="custom" placeholder="Enter custom bid">
-
-        <button onclick="customBid()">Submit Custom Bid</button>
-
+      <hr style="border:none;border-top:1px solid var(--border);margin:1rem 0;">
+      <h2>Final squad card colour</h2>
+      <p style="color:var(--muted);font-size:0.85rem;">For your team’s exported card after the auction. <strong>Multi</strong> is the default blended look; pick a solid colour if you prefer.</p>
+      <form method="post" action="{{ url_for('captain_set_finals_theme') }}">
+        <label for="finals_theme_pick" class="final-visually-hidden">Card background</label>
+        <select id="finals_theme_pick" name="theme" style="width:100%;max-width:280px;margin:0;">
+          <option value="multi" {% if finals_team_theme == 'multi' %}selected{% endif %}>Multi (default blend)</option>
+          <option value="blue" {% if finals_team_theme == 'blue' %}selected{% endif %}>Blue</option>
+          <option value="red" {% if finals_team_theme == 'red' %}selected{% endif %}>Red</option>
+          <option value="yellow" {% if finals_team_theme == 'yellow' %}selected{% endif %}>Yellow</option>
+        </select>
+        <button type="submit" class="btn btn--ghost btn--sm" style="width:auto;margin-top:0.5rem;">Save colour</button>
+      </form>
     </div>
 
-    <!-- TEAM INFO -->
-    <div class="side">
+    <div id="hero-lot-panel" class="panel hero-card-wrap hero-card-wrap--auction-lot {% if lot_live %}hero-card-wrap--lot-live{% endif %}">
+      <h2>Current player</h2>
+      {% if current_player %}
+      <p id="player" style="font-size:1.35rem;font-weight:700;">{{ current_player.name }}</p>
+      <img id="card" class="auction-lot-card-img" src="{{ url_for('static', filename='uploads/' + current_player.player_card) }}" alt="" style="display:block;">
+      {% else %}
+      <p id="player" style="font-size:1.35rem;font-weight:700;">Waiting…</p>
+      <img id="card" class="auction-lot-card-img" alt="" style="display:none;">
+      {% endif %}
+      {% if current_player %}
+      <p style="color:var(--muted);">Base <span id="base">{{ current_player.base_price }}</span> · Next step +<span id="nextInc">{{ next_increment }}</span></p>
+      {% else %}
+      <p style="color:var(--muted);">Base <span id="base">0</span> · Next step +<span id="nextInc">{{ next_increment }}</span></p>
+      {% endif %}
+      <p class="bid-display"><span id="bid">{{ state.current_bid }}</span></p>
+      <p>Leading: <strong id="leader">—</strong></p>
+      <p class="timer-display"><span id="timer">{% if timer_live is not none %}{{ timer_live }} s{% else %}—{% endif %}</span></p>
+      <p style="color:var(--muted);font-size:0.85rem;">Auction: <span id="full-flag">{{ 'live' if state.full_auction_started else 'locked' }}</span></p>
 
-        <h2>🏏 Team Info</h2>
+      <p id="bid-wait-hint" class="bid-wait-hint" style="display:none;">Wait for another captain to bid — then you can raise again.</p>
 
-        <b>{{ team.team_name }}</b>
+      <button type="button" class="btn btn--primary" onclick="bid()" id="btn-bid">Raise bid (+increment)</button>
 
-        <p>💰 Points Left: {{ team.remaining_points }}</p>
-
-        <p>👤 Players Bought: {{ team.players_bought }}/7</p>
-
-        <hr>
-
-        <h3>📊 Auction Rules</h3>
-
-        <p>✔ Min bid increment auto</p>
-        <p>✔ Max bid depends on reserve</p>
-        <p>✔ Must buy 7 players</p>
-
-        <hr>
-
-        <h3>📌 Your Limits</h3>
-
-        <p>Reserve & Max bid calculated by system</p>
-
+      <label id="custom-label" for="custom">Custom bid — higher than current (opening: enter base price exactly)</label>
+      <input id="custom" type="number" placeholder="Pts">
+      <button type="button" class="btn btn--ghost" onclick="customBid()" id="btn-custom-bid">Place custom bid</button>
     </div>
 
-</div>
+    <div class="panel scroll-panel">
+      <h2>League table (live)</h2>
+      <table class="table-mini" id="cap-teams">
+        <thead>
+          <tr><th></th><th>Team</th><th>Pts</th><th>Squad</th><th>Ready</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <h2 style="margin-top:1rem;">Sold so far</h2>
+      <div id="sold-list" class="scroll-panel" style="max-height:240px;"></div>
+    </div>
 
-<!-- SOCKET LOGIC -->
+    <div class="panel auction-span-full scroll-panel">
+      <h2>Unsold pool</h2>
+      <div id="cap-unsold" class="unsold-chips"></div>
+      <h2 style="margin-top:1rem;">Squads (buys by team)</h2>
+      <div id="cap-squad-board" class="squad-mini-board"></div>
+    </div>
+  </div>
+
 <script>
-
 var socket = io();
+if (window.AuctionAudio) AuctionAudio.bindSocket(socket);
+  var myTeamId = {{ team.id }};
+  var initialComplete = {{ 'true' if state.auction_complete else 'false' }};
 
-socket.emit("request_state");
+  socket.emit("request_state");
 
-/* RECEIVE FULL AUCTION STATE */
-socket.on("auction_state_update", function(data){
+  function syncCompleteBanner(done) {
+    var b = document.getElementById("auction-complete-banner");
+    if (b) b.style.display = done ? "block" : "none";
+  }
+  syncCompleteBanner(initialComplete);
 
-    // PLAYER
-    if(data.player){
-        if(document.getElementById("player")){
-            document.getElementById("player").innerText = data.player.name;
-        }
+function toast(msg) {
+  var el = document.getElementById("toast");
+  el.textContent = msg;
+  el.classList.add("toast--show");
+  setTimeout(function () { el.classList.remove("toast--show"); }, 2600);
+}
 
-        if(document.getElementById("card")){
-            document.getElementById("card").src = "/static/uploads/" + data.player.card;
-        }
+function renderTeams(teams) {
+  var tb = document.querySelector("#cap-teams tbody");
+  if (!tb || !teams) return;
+  tb.innerHTML = "";
+  teams.forEach(function (t) {
+    var ph = t.captain_photo;
+    var nm = t.name || "?";
+    var ini = nm.charAt(0).toUpperCase();
+    var capCell = ph
+      ? '<img class="cap-avatar" src="/static/uploads/' + ph + '" alt="">'
+      : '<span class="cap-avatar cap-avatar--placeholder">' + ini + "</span>";
+    var tr = document.createElement("tr");
+    tr.innerHTML =
+      "<td>" +
+      capCell +
+      "</td><td><strong>" +
+      t.name +
+      "</strong></td><td>" +
+      t.points +
+      "</td><td>" +
+      t.players +
+      "/7</td><td><span class=\"ready-dot" +
+      (t.ready ? " ready-dot--on" : "") +
+      "\"></span></td>";
+    tb.appendChild(tr);
 
-        if(document.getElementById("base")){
-            document.getElementById("base").innerText = data.player.base_price;
-        }
+    if (t.id === myTeamId) {
+      document.getElementById("cap-points").textContent = t.points;
+      document.getElementById("cap-bought").textContent = t.players;
+      document.getElementById("cap-needed").textContent = t.needed;
+      document.getElementById("cap-reserve").textContent = t.reserve;
+      document.getElementById("cap-max").textContent = t.max_bid;
+      document.getElementById("cap-ready-dot").classList.toggle("ready-dot--on", !!t.ready);
+      document.getElementById("cap-ready-label").textContent = t.ready ? "ready" : "not ready";
     }
+  });
+}
 
-    // BID
-    if(document.getElementById("bid")){
-        document.getElementById("bid").innerText = data.bid;
+function renderSold(sold) {
+  var box = document.getElementById("sold-list");
+  if (!box || !sold) return;
+  box.innerHTML = "";
+  sold.slice(-40).reverse().forEach(function (s) {
+    var div = document.createElement("div");
+    div.className = "card-row";
+    div.textContent = s.name + " → " + (s.team || "?") + " @ " + s.price;
+    box.appendChild(div);
+  });
+}
+
+function renderCapUnsold(unsold) {
+  var host = document.getElementById("cap-unsold");
+  if (!host) return;
+  host.innerHTML = "";
+  if (!unsold || !unsold.length) {
+    host.innerHTML = '<span style="color:var(--muted);font-size:0.85rem;">No unsold players.</span>';
+    return;
+  }
+  unsold.forEach(function (p) {
+    var span = document.createElement("span");
+    span.className = "unsold-chip";
+    span.textContent = p.name + " · " + p.base_price + " pts";
+    host.appendChild(span);
+  });
+}
+
+function renderCapSquads(teams) {
+  var host = document.getElementById("cap-squad-board");
+  if (!host || !teams) return;
+  host.innerHTML = "";
+  teams.forEach(function (t) {
+    var col = document.createElement("div");
+    col.className = "squad-mini-col";
+    var h = document.createElement("h3");
+    h.className = "squad-mini-col__title";
+    h.textContent = t.name;
+    col.appendChild(h);
+    var ul = document.createElement("ul");
+    ul.className = "squad-mini-col__list";
+    var squad = t.squad || [];
+    if (!squad.length) {
+      var li0 = document.createElement("li");
+      li0.className = "squad-mini-col__empty";
+      li0.textContent = "No buys yet";
+      ul.appendChild(li0);
+    } else {
+      squad.forEach(function (p) {
+        var li = document.createElement("li");
+        li.textContent = p.name + " · " + p.price + " pts";
+        ul.appendChild(li);
+      });
     }
+    col.appendChild(ul);
+    host.appendChild(col);
+  });
+}
 
-    // LEADING TEAM
-    if(document.getElementById("leader")){
-        document.getElementById("leader").innerText = data.leading_team || "-";
-    }
+function captainLotLive(data) {
+  return !!(data.full_auction_started && data.player && (data.status === "waiting" || data.status === "running"));
+}
 
-    // TIMER
-    if(document.getElementById("timer")){
-        document.getElementById("timer").innerText = data.timer;
-    }
+socket.on("auction_state_update", function (data) {
+  document.getElementById("full-flag").textContent = data.full_auction_started ? "live" : "locked";
 
-    // (OPTIONAL DEBUG)
-    console.log("Teams:", data.teams);
-    console.log("Sold:", data.sold);
+  var hero = document.getElementById("hero-lot-panel");
+  if (hero) hero.classList.toggle("hero-card-wrap--lot-live", captainLotLive(data));
+
+  var done = !!data.auction_complete;
+  syncCompleteBanner(done);
+
+  if (data.player) {
+    document.getElementById("player").textContent = data.player.name;
+    var img = document.getElementById("card");
+    img.src = "/static/uploads/" + data.player.card;
+    img.style.display = "block";
+    document.getElementById("base").textContent = data.player.base_price;
+  } else {
+    document.getElementById("player").textContent = "Waiting for next lot…";
+    document.getElementById("card").style.display = "none";
+    document.getElementById("base").textContent = "0";
+  }
+
+  document.getElementById("bid").textContent = data.bid;
+  document.getElementById("leader").textContent = data.leading_team || "—";
+  document.getElementById("timer").textContent =
+    data.timer != null ? data.timer + " s" : "—";
+  document.getElementById("nextInc").textContent = data.next_increment || 0;
+
+  var canBid =
+    !done &&
+    data.full_auction_started &&
+    data.player &&
+    (data.status === "waiting" || data.status === "running");
+  var waitTurn =
+    data.last_bid_team_id != null && data.last_bid_team_id === myTeamId;
+
+  document.getElementById("bid-wait-hint").style.display =
+    waitTurn && canBid ? "block" : "none";
+
+  var btnBid = document.getElementById("btn-bid");
+  var btnCust = document.getElementById("btn-custom-bid");
+  btnBid.disabled = !canBid || waitTurn;
+  btnCust.disabled = !canBid || waitTurn;
+
+  if (data.opening_claim && data.claim_amount != null) {
+    btnBid.textContent = "Bid " + data.claim_amount + " pts (base)";
+    document.getElementById("custom-label").textContent =
+      "Custom bid — enter base price exactly (" + data.claim_amount + " pts)";
+  } else {
+    btnBid.textContent = "Raise bid (+increment)";
+    document.getElementById("custom-label").textContent =
+      "Custom bid — must be higher than current high bid";
+  }
+
+  renderTeams(data.teams);
+  renderSold(data.sold);
+  renderCapUnsold(data.unsold);
+  renderCapSquads(data.teams);
 });
 
+socket.on("bid_rejected", function (data) {
+  toast(data.reason || "Bid rejected");
+});
 
+socket.on("player_sold", function (data) {
+  toast(data.player + " sold to " + data.team + " @ " + data.price);
+});
 
-/* BID */
-function bid(){
-    socket.emit("bid");
+function bid() {
+  socket.emit("bid");
 }
 
-/* CUSTOM BID */
-function customBid(){
-
-    var value = document.getElementById("custom").value;
-
-    socket.emit("custom_bid", {
-        amount: value
-    });
-
+function customBid() {
+  var v = document.getElementById("custom").value;
+  socket.emit("custom_bid", { amount: v });
 }
 
+document.getElementById("btn-ready-on").onclick = function () {
+  socket.emit("captain_ready", { ready: true });
+};
+document.getElementById("btn-ready-off").onclick = function () {
+  socket.emit("captain_ready", { ready: false });
+};
 </script>
-
+{% include 'includes/league_footer.html' %}
 </body>
 </html>

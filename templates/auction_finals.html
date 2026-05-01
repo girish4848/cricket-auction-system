@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GPL 3.0 · Final squads</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700;0,9..40,800&family=Outfit:wght@500;600;700;800&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <header class="screen-header no-print">
+    {% include 'includes/brand_bar.html' %}
+    <nav class="nav-links">
+      <span style="color:var(--muted);font-size:0.85rem;">Final squads · admin</span>
+      <a href="{{ url_for('admin_auction') }}">Control room</a>
+      <a href="{{ url_for('live_board') }}" target="_blank" rel="noopener">Live board</a>
+      <a href="{{ url_for('admin_logout') }}">Logout</a>
+    </nav>
+  </header>
+
+  <div class="layout-grid finals-wrap">
+    {% if stale_results %}
+      <p class="flash flash--ok no-print" style="grid-column:1/-1;margin:0;">
+        Showing the last saved auction. A new run may be in progress — confirm with the admin.
+      </p>
+    {% endif %}
+
+    {% if snapshot and snapshot.teams %}
+      <div class="finals-hero no-print">
+        <h1 style="margin:0;font-size:clamp(1.35rem,4vw,1.85rem);color:var(--gold-soft);">Auction complete</h1>
+        <p style="color:var(--muted);margin:0.35rem 0 0;font-size:0.95rem;">Edit the <strong>team name</strong> in the large field (that title is only for the card export). The captain row shows the captain’s <strong>login username</strong>, which does not change when you rename the team.</p>
+      </div>
+
+      {% for tm in snapshot.teams %}
+        <section
+          id="final-team-panel-{{ tm.id }}"
+          class="panel final-team-panel"
+          data-team-name="{{ tm.name|e }}"
+        >
+          <div class="final-team-toolbar no-print">
+            <button type="button" class="btn btn--primary btn--sm" data-save-team-image="team-capture-{{ tm.id }}">
+              Save team image
+            </button>
+          </div>
+
+          <div
+            id="team-capture-{{ tm.id }}"
+            class="final-team-capture final-card-pl final-card-pl--{{ tm.card_theme }}"
+            data-team-name="{{ tm.name|e }}"
+            data-theme="{{ tm.card_theme }}"
+          >
+            {% if use_gladiators_png %}
+            <div class="final-card-pl__brand">
+              <img
+                src="{{ url_for('static', filename='images/gladiators-logo.png') }}"
+                alt=""
+                class="final-club-logo club-logo--outline-gold"
+                width="320"
+                height="80"
+              >
+            </div>
+            {% endif %}
+            <p class="final-card-pl__league">INTRA GLADIATORS PREMIER LEAGUE · GPL 3.0</p>
+            <p class="final-card-pl__auction-mark">GPL AUCTION</p>
+
+            <label class="final-visually-hidden" for="final-team-name-{{ tm.id }}">Team name on card</label>
+            <input
+              id="final-team-name-{{ tm.id }}"
+              type="text"
+              class="final-team-name-input"
+              value="{{ tm.name|e }}"
+              data-initial-name="{{ tm.name|e }}"
+              maxlength="120"
+              autocomplete="off"
+              spellcheck="false"
+            >
+
+            <div class="final-lineup">
+              <div class="final-lineup-row">
+                <div class="final-avatar-slot">
+                  {% if tm.captain_photo %}
+                    <img class="final-cap-face" src="{{ url_for('static', filename='uploads/' + tm.captain_photo) }}" alt="">
+                  {% else %}
+                    <span class="final-slot-ph" aria-hidden="true">{{ ((tm.captain_username or tm.name or '?'))[0]|upper }}</span>
+                  {% endif %}
+                </div>
+                <span class="final-lineup-name">
+                  <span class="final-captain-username">{{ tm.captain_username or '—' }}</span> <span class="final-c-tag">(C)</span>
+                </span>
+              </div>
+              {% for pl in tm.squad %}
+                <div class="final-lineup-row">
+                  <div class="final-avatar-slot">
+                    {% if pl.photo %}
+                      <img class="final-player-photo" src="{{ url_for('static', filename='uploads/' + pl.photo) }}" alt="">
+                    {% elif pl.card %}
+                      <img class="final-player-photo final-player-photo--from-card" src="{{ url_for('static', filename='uploads/' + pl.card) }}" alt="">
+                    {% else %}
+                      <span class="final-slot-ph" aria-hidden="true">{{ (pl.name or '?')[0]|upper }}</span>
+                    {% endif %}
+                  </div>
+                  <span class="final-lineup-name">{{ pl.name }}</span>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        </section>
+      {% endfor %}
+    {% else %}
+      <div class="panel no-print" style="grid-column:1/-1;text-align:center;">
+        <h2 style="color:var(--muted);font-size:1.1rem;">No finished auction on file yet.</h2>
+        <p style="color:var(--muted);font-size:0.9rem;">When every player is sold, results are saved automatically and appear here.</p>
+        <p style="margin-top:1rem;"><a href="{{ url_for('live_board') }}" class="btn btn--ghost" style="width:auto;display:inline-flex;">Live board</a></p>
+      </div>
+    {% endif %}
+  </div>
+
+{% include 'includes/league_footer.html' %}
+
+{% if snapshot and snapshot.teams %}
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" crossorigin="anonymous"></script>
+  <script src="{{ url_for('static', filename='js/finals_team_export.js') }}" defer></script>
+{% endif %}
+</body>
+</html>

@@ -1,0 +1,19 @@
+<div class="brand-lockup">
+  <img
+    {% if use_gladiators_png %}
+    src="{{ url_for('static', filename='images/gladiators-logo.png') }}"
+    {% else %}
+    src="{{ url_for('static', filename='images/gladiators-logo.svg') }}"
+    {% endif %}
+    width="640"
+    height="160"
+    alt="Gladiators Premier League"
+    class="club-logo club-logo--wide{% if use_gladiators_png %} club-logo--outline-gold{% endif %}"
+    decoding="async"
+    fetchpriority="high"
+  >
+  <div class="brand-text">
+    <span class="brand-auction brand-auction--full">Gladiators Premier League · Auction</span>
+    <span class="brand-tag">GPL 3.0</span>
+  </div>
+</div>

@@ -1,0 +1,21 @@
+<footer class="league-footer" role="contentinfo">
+  <div class="league-footer__inner">
+    <img
+      {% if use_gladiators_png %}
+      src="{{ url_for('static', filename='images/gladiators-logo.png') }}"
+      {% else %}
+      src="{{ url_for('static', filename='images/gladiators-logo.svg') }}"
+      {% endif %}
+      width="640"
+      height="160"
+      alt=""
+      class="league-footer__logo league-footer__logo--wide{% if use_gladiators_png %} club-logo--outline-gold{% endif %}"
+      decoding="async"
+      loading="lazy"
+    >
+    <div class="league-footer__text">
+      <strong class="league-footer__gpl">GPL 3.0</strong>
+      <span class="league-footer__sub">Gladiators Premier League · Live auction</span>
+    </div>
+  </div>
+</footer>

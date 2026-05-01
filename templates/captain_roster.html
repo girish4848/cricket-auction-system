@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GPL 3.0 · Player roster</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+{% from 'includes/macros.html' import captain_face %}
+  <header class="screen-header">
+    {% include 'includes/brand_bar.html' %}
+    <div class="team-cell-cap" style="flex:0 1 auto;">
+      {{ captain_face(team, 'cap-avatar--header') }}
+      <div style="text-align:left;line-height:1.2;">
+        <div style="font-weight:800;color:var(--gold-soft);font-size:clamp(0.9rem,2.5vw,1.05rem);">{{ team.team_name }}</div>
+        <div style="font-size:0.72rem;color:var(--muted);">Captain</div>
+      </div>
+    </div>
+    <nav class="nav-links">
+      <span style="color:var(--muted);font-size:0.9rem;">All players</span>
+      <a href="{{ url_for('auction') }}">Auction room</a>
+      <a href="{{ url_for('logout') }}">Logout</a>
+    </nav>
+  </header>
+
+  <div class="layout-grid" style="max-width:1100px;flex:1;">
+    <div class="panel">
+      <h2>League roster</h2>
+      <p style="color:var(--muted);font-size:0.9rem;margin-top:0;">
+        Tap a player card to open full details (same images as the auction room).
+      </p>
+      <div class="captain-roster-grid" id="roster-grid">
+        {% for row in roster_rows %}
+          <button type="button" class="roster-tile {% if row.status == 'sold' %}roster-tile--sold{% endif %}" data-player-id="{{ row.id }}">
+            {% if row.card %}
+              <img src="{{ url_for('static', filename='uploads/' + row.card) }}" alt="" loading="lazy">
+            {% else %}
+              <div class="roster-tile__placeholder">{{ row.name[0]|upper }}</div>
+            {% endif %}
+            <span class="roster-tile__name">{{ row.name }}</span>
+            {% if row.status == 'sold' %}
+              <span class="roster-tile__badge">Sold</span>
+            {% endif %}
+          </button>
+        {% else %}
+          <p style="color:var(--muted);grid-column:1/-1;">No players in the league yet.</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <script type="application/json" id="roster-data">{{ roster_rows | tojson }}</script>
+
+  <dialog class="player-detail-dialog" id="player-detail" aria-labelledby="detail-title">
+    <div class="player-detail-dialog__inner">
+      <button type="button" class="player-detail-dialog__close" id="detail-close" aria-label="Close">&times;</button>
+      <h2 id="detail-title" class="player-detail-dialog__title"></h2>
+      <img id="detail-card-img" class="player-detail-dialog__card" alt="">
+      <dl class="player-detail-dialog__meta">
+        <div><dt>Category</dt><dd id="detail-category"></dd></div>
+        <div><dt>Base price</dt><dd id="detail-base"></dd></div>
+        <div><dt>Status</dt><dd id="detail-status"></dd></div>
+        <div id="detail-sold-row" hidden><dt>Sale</dt><dd id="detail-sold"></dd></div>
+      </dl>
+    </div>
+  </dialog>
+
+<script>
+(function () {
+  var dlg = document.getElementById("player-detail");
+  var grid = document.getElementById("roster-grid");
+  var raw = document.getElementById("roster-data");
+  if (!dlg || !grid || !raw) return;
+
+  var rosterList = [];
+  try {
+    rosterList = JSON.parse(raw.textContent);
+  } catch (e) {
+    return;
+  }
+  var byId = {};
+  rosterList.forEach(function (r) {
+    byId[r.id] = r;
+  });
+
+  function openDetail(data) {
+    document.getElementById("detail-title").textContent = data.name || "";
+    var img = document.getElementById("detail-card-img");
+    if (data.card) {
+      img.src = "/static/uploads/" + data.card;
+      img.style.display = "block";
+    } else {
+      img.removeAttribute("src");
+      img.style.display = "none";
+    }
+    document.getElementById("detail-category").textContent = data.category != null ? String(data.category) : "—";
+    document.getElementById("detail-base").textContent =
+      data.base_price != null ? data.base_price + " pts" : "—";
+    var st = (data.status || "unsold").toLowerCase();
+    document.getElementById("detail-status").textContent =
+      st === "sold" ? "Sold" : st === "unsold" ? "Unsold (pool)" : data.status;
+    var soldRow = document.getElementById("detail-sold-row");
+    var soldDd = document.getElementById("detail-sold");
+    if (st === "sold" && data.sold_price != null) {
+      soldRow.hidden = false;
+      var line = String(data.sold_price) + " pts";
+      if (data.buyer_team) line += " → " + data.buyer_team;
+      soldDd.textContent = line;
+    } else {
+      soldRow.hidden = true;
+      soldDd.textContent = "";
+    }
+    if (typeof dlg.showModal === "function") {
+      dlg.showModal();
+    } else {
+      dlg.setAttribute("open", "");
+    }
+  }
+
+  grid.addEventListener("click", function (e) {
+    var btn = e.target.closest(".roster-tile");
+    if (!btn) return;
+    var id = parseInt(btn.getAttribute("data-player-id"), 10);
+    var data = byId[id];
+    if (data) openDetail(data);
+  });
+
+  document.getElementById("detail-close").onclick = function () {
+    if (typeof dlg.close === "function") dlg.close();
+    else dlg.removeAttribute("open");
+  };
+
+  dlg.addEventListener("click", function (e) {
+    if (e.target === dlg && typeof dlg.close === "function") dlg.close();
+  });
+})();
+</script>
+{% include 'includes/league_footer.html' %}
+</body>
+</html>

@@ -1,0 +1,8 @@
+{% macro captain_face(team, extra_class='') -%}
+  {% if team.captain_photo %}
+    <img class="cap-avatar {{ extra_class }}" src="{{ url_for('static', filename='uploads/' + team.captain_photo) }}" alt="">
+  {% else %}
+    {% set nm = team.team_name or '?' %}
+    <span class="cap-avatar cap-avatar--placeholder {{ extra_class }}" aria-hidden="true">{{ nm[0]|upper }}</span>
+  {% endif %}
+{%- endmacro %}

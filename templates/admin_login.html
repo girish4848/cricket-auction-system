@@ -3,8 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#070506">
-  <title>GPL 3.0 · Captain login</title>
+  <title>GPL 3.0 · Admin</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/css/style.css">
 </head>
@@ -12,9 +11,9 @@
   <div class="login-shell">
     <div class="login-panel">
       {% include 'includes/brand_bar.html' %}
-      <h1 style="font-size:1.15rem;color:var(--gold-soft);margin-bottom:0.25rem;">Captain login</h1>
-      <p style="color: var(--muted); font-size: 0.9rem; margin-top: 0;">
-        Sign in with credentials issued by the auction admin.
+      <h1 style="font-size:1.15rem;color:var(--gold-soft);margin-bottom:0.25rem;">Admin access</h1>
+      <p style="color: var(--muted); font-size: 0.9rem;">
+        Use the server password (env <code style="color:var(--gold-soft);">ADMIN_PASSWORD</code>, default <code style="color:var(--gold-soft);">admin</code>).
       </p>
 
       {% with messages = get_flashed_messages(with_categories=true) %}
@@ -23,17 +22,13 @@
         {% endfor %}
       {% endwith %}
 
-      <form action="{{ url_for('login') }}" method="post" style="margin-top: 1.25rem;">
-        <label for="username">Username</label>
-        <input id="username" name="username" autocomplete="username" required>
-
+      <form method="post" style="margin-top: 1.25rem;">
         <label for="password">Password</label>
-        <input id="password" name="password" type="password" autocomplete="current-password" required>
-
-        <button type="submit" class="btn btn--primary" style="margin-top:1rem;">Enter auction room</button>
+        <input id="password" name="password" type="password" required autocomplete="current-password">
+        <button type="submit" class="btn btn--primary" style="margin-top:1rem;">Unlock admin</button>
       </form>
       <p style="margin-top:1rem;font-size:0.85rem;color:var(--muted);">
-        Auction admin? <a href="{{ url_for('admin_login') }}">Admin login</a>
+        <a href="{{ url_for('home') }}">Captain login</a>
       </p>
     </div>
   </div>

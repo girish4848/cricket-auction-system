@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" role="img" aria-labelledby="gpl-logo-title">
+  <title id="gpl-logo-title">Gladiators Premier League</title>
+  <!-- Sharp vector lockup (white on transparent; no filters — raster PNG preferred for exact artwork) -->
+  <g fill="#ffffff">
+    <path d="M28 52c0-14 10-26 24-28 3-8 12-14 22-14 10 0 19 6 22 14 14 2 24 14 24 28v8H28v-8z"/>
+    <path d="M52 28c6-10 18-16 30-16s24 6 30 16" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+    <ellipse cx="74" cy="44" rx="6" ry="5"/>
+    <path d="M44 58h60v6H44z" opacity="0.92"/>
+    <path d="M8 62c18-22 36-24 52-20 10 3 18 12 22 22" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
+  </g>
+  <text x="112" y="48" fill="#ffffff" font-family="Georgia, 'Times New Roman', serif" font-size="26" font-weight="700" letter-spacing="0.06em">GLADIATORS</text>
+  <text x="112" y="68" fill="#ffffff" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="11" font-weight="600" letter-spacing="0.28em" opacity="0.88">PREMIER LEAGUE</text>
+</svg>

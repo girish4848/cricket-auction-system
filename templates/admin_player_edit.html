@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GPL 3.0 · Edit player</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <header class="screen-header">
+    {% include 'includes/brand_bar.html' %}
+    <nav class="nav-links">
+      <span style="color:var(--muted);font-size:0.8rem;">Edit player</span>
+      <a href="{{ url_for('admin_players') }}">Players</a>
+      <a href="{{ url_for('admin_dashboard') }}">Overview</a>
+      <a href="{{ url_for('admin_teams') }}">Teams</a>
+      <a href="{{ url_for('admin_auction') }}">Auction room</a>
+      <a href="{{ url_for('admin_logout') }}">Logout</a>
+    </nav>
+  </header>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    <div class="flash-wrap">
+      {% for category, msg in messages %}
+        <div class="flash flash--{{ 'error' if category == 'error' else 'ok' }}">{{ msg }}</div>
+      {% endfor %}
+    </div>
+  {% endwith %}
+
+  <div class="layout-grid" style="max-width:640px;">
+    <div class="panel">
+      <h2>Edit player</h2>
+      {% if player.status == 'sold' %}
+        <p style="color:var(--warning);font-size:0.9rem;">Sold — you can change display name, card image, and face photo.</p>
+      {% elif on_auction_block %}
+        <p style="color:var(--warning);font-size:0.9rem;">This player is the active lot — category cannot be changed until the lot clears.</p>
+      {% endif %}
+
+      {% if player.player_card %}
+        <div style="margin:0.5rem 0 1rem;">
+          <img src="{{ url_for('static', filename='uploads/' + player.player_card) }}" alt="" style="max-width:160px;border-radius:8px;">
+        </div>
+      {% endif %}
+
+      {% if player.player_photo %}
+        <div style="margin:0.5rem 0;">
+          <span style="color:var(--muted);font-size:0.75rem;display:block;margin-bottom:0.25rem;">Face (squad cards)</span>
+          <img src="{{ url_for('static', filename='uploads/' + player.player_photo) }}" alt="" style="width:88px;height:88px;border-radius:50%;object-fit:cover;border:2px solid rgba(212,175,55,0.4);">
+        </div>
+      {% endif %}
+
+      <form method="post" enctype="multipart/form-data">
+        <label for="name">Display name</label>
+        <input id="name" name="name" value="{{ player.name }}" required>
+
+        {% if player.status == 'sold' %}
+          <p style="color:var(--muted);font-size:0.85rem;margin:0.5rem 0;">Category {{ player.category }} · Base {{ player.base_price }} (locked)</p>
+        {% else %}
+          <label for="category">Category / base price</label>
+          <select id="category" name="category" {% if on_auction_block %}disabled{% endif %}>
+            {% for c, price in category_prices.items() %}
+              <option value="{{ c }}" {% if c == player.category %}selected{% endif %}>Category {{ c }} — {{ price }} pts</option>
+            {% endfor %}
+          </select>
+          {% if on_auction_block %}
+            <input type="hidden" name="category" value="{{ player.category }}">
+          {% endif %}
+        {% endif %}
+
+        <label for="player_photo">Face photo (optional)</label>
+        <input id="player_photo" type="file" name="player_photo" accept="image/*">
+        <p style="color:var(--muted);font-size:0.78rem;margin:0.35rem 0 0;">Used on final squad cards. Upload a square or portrait headshot.</p>
+
+        <label for="card">Replace player card image</label>
+        <input id="card" type="file" name="card" accept="image/*">
+        <p style="color:var(--muted);font-size:0.8rem;margin:0.35rem 0 0;">Optional — upload only if you want a new image.</p>
+
+        <div class="form-actions" style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:1rem;">
+          <button type="submit" class="btn btn--primary">Save changes</button>
+          <a href="{{ url_for('admin_players') }}" class="btn btn--ghost">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+{% include 'includes/league_footer.html' %}
+</body>
+</html>

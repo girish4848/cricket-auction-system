@@ -1,147 +1,127 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<title>Live Leaderboard</title>
-
-<link rel="stylesheet" href="/static/css/style.css">
-
-<script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
-
-<style>
-
-body {
-    background: #020617;
-    color: white;
-    font-family: Arial;
-    text-align: center;
-}
-
-/* leaderboard container */
-.board {
-    width: 80%;
-    margin: auto;
-}
-
-/* team card */
-.team {
-    display: flex;
-    justify-content: space-between;
-    background: #1e293b;
-    padding: 15px;
-    margin: 10px 0;
-    border-radius: 10px;
-    align-items: center;
-}
-
-/* bar visualization */
-.bar {
-    height: 10px;
-    background: #22c55e;
-    border-radius: 5px;
-}
-
-/* highlight top team */
-.top {
-    border: 2px solid gold;
-}
-
-/* mobile */
-@media (max-width: 900px) {
-    .board {
-        width: 95%;
-    }
-
-    .team {
-        flex-direction: column;
-        gap: 10px;
-    }
-}
-
-</style>
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GPL 3.0 · Leaderboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css">
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script src="{{ url_for('static', filename='js/auction_sounds.js') }}"></script>
 </head>
-
 <body>
+{% from 'includes/macros.html' import captain_face %}
 
-<h1>🏆 LIVE LEADERBOARD</h1>
+<header class="screen-header">
+  {% include 'includes/brand_bar.html' %}
+  <button type="button" class="sound-toggle" data-sound-toggle aria-pressed="true">Sound on</button>
+  <nav class="nav-links">
+    <span style="color:var(--muted);font-size:0.85rem;">Live standings</span>
+  </nav>
+</header>
 
-<div class="board">
+<div class="board" style="width:min(920px,95%);margin:0.75rem auto 1.25rem;flex:1;">
 
-    {% set max_points = teams[0].remaining_points if teams else 1 %}
+  {% set max_pts = teams[0].remaining_points if teams else 1 %}
 
+  <div id="lb-rows">
     {% for t in teams %}
-
-    <div class="team {% if loop.first %}top{% endif %}">
-
-        <div style="width: 25%;">
-            <h3>{{ t.team_name }}</h3>
-        </div>
-
-        <div style="width: 25%;">
-            💰 {{ t.remaining_points }}
-        </div>
-
-        <div style="width: 25%;">
-            👤 {{ t.players_bought }}/7
-        </div>
-
-        <div style="width: 25%;">
-            <div class="bar"
-                 style="width: {{ (t.remaining_points / max_points) * 100 }}%">
-            </div>
-        </div>
-
+    <div class="team {% if loop.first %}top{% endif %}" data-team="{{ t.id }}">
+      <div style="width:min(100%,10%);min-width:42px;">
+        {{ captain_face(t) }}
+      </div>
+      <div style="width:min(100%,22%);">
+        <h3 style="margin:0;font-size:1rem;">{{ t.team_name }}</h3>
+      </div>
+      <div class="lb-rem" style="width:min(100%,24%);">💰 {{ t.remaining_points }}</div>
+      <div class="lb-players" style="width:min(100%,24%);">👤 {{ t.players_bought }}/7</div>
+      <div style="width:min(100%,28%);">
+        <div class="bar" style="width: {{ (t.remaining_points / max_pts * 100) | round(1) }}%;"></div>
+      </div>
     </div>
-
+    {% else %}
+    <p style="text-align:center;color:var(--muted);">No teams configured.</p>
     {% endfor %}
+  </div>
 
 </div>
 
+<style>
+.board .team {
+  display: flex;
+  justify-content: space-between;
+  background: var(--raised);
+  padding: 15px;
+  margin: 10px 0;
+  border-radius: var(--radius);
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  border: 1px solid var(--border);
+}
+.board .bar {
+  height: 10px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-dim));
+  border-radius: 5px;
+  max-width: 100%;
+}
+.board .top {
+  border: 2px solid rgba(251, 191, 36, 0.65);
+}
+@media (max-width: 900px) {
+  .board .team { flex-direction: column; align-items: stretch; }
+}
+</style>
+
 <script>
-
 var socket = io();
-
+if (window.AuctionAudio) AuctionAudio.bindSocket(socket);
 socket.emit("request_state");
 
-/* RECEIVE FULL AUCTION STATE */
-socket.on("auction_state_update", function(data){
+function lbBrdCaptain(t) {
+  var ph = t.captain_photo;
+  var nm = t.name || "?";
+  var ini = nm.charAt(0).toUpperCase();
+  if (ph) {
+    return '<img class="cap-avatar" src="/static/uploads/' + ph + '" alt="">';
+  }
+  return '<span class="cap-avatar cap-avatar--placeholder">' + ini + "</span>";
+}
 
-    // PLAYER
-    if(data.player){
-        if(document.getElementById("player")){
-            document.getElementById("player").innerText = data.player.name;
-        }
+socket.on("auction_state_update", function (data) {
+  if (!data.teams || !data.teams.length) return;
+  var maxPts = Math.max.apply(null, data.teams.map(function (t) { return t.points; }));
+  if (!maxPts) maxPts = 1;
 
-        if(document.getElementById("card")){
-            document.getElementById("card").src = "/static/uploads/" + data.player.card;
-        }
+  var wrap = document.getElementById("lb-rows");
+  wrap.innerHTML = "";
 
-        if(document.getElementById("base")){
-            document.getElementById("base").innerText = data.player.base_price;
-        }
-    }
-
-    // BID
-    if(document.getElementById("bid")){
-        document.getElementById("bid").innerText = data.bid;
-    }
-
-    // LEADING TEAM
-    if(document.getElementById("leader")){
-        document.getElementById("leader").innerText = data.leading_team || "-";
-    }
-
-    // TIMER
-    if(document.getElementById("timer")){
-        document.getElementById("timer").innerText = data.timer;
-    }
-
-    // (OPTIONAL DEBUG)
-    console.log("Teams:", data.teams);
-    console.log("Sold:", data.sold);
+  data.teams
+    .slice()
+    .sort(function (a, b) { return b.points - a.points; })
+    .forEach(function (t, idx) {
+      var div = document.createElement("div");
+      div.className = "team" + (idx === 0 ? " top" : "");
+      div.innerHTML =
+        '<div style="width:min(100%,10%);min-width:42px;">' +
+        lbBrdCaptain(t) +
+        '</div>' +
+        '<div style="width:min(100%,22%);"><h3 style="margin:0;font-size:1rem;">' +
+        t.name +
+        '</h3></div>' +
+        '<div style="width:min(100%,22%);">💰 ' +
+        t.points +
+        '</div>' +
+        '<div style="width:min(100%,22%);">👤 ' +
+        t.players +
+        '/7</div>' +
+        '<div style="width:min(100%,24%);"><div class="bar" style="width:' +
+        ((t.points / maxPts) * 100).toFixed(1) +
+        '%;"></div></div>';
+      wrap.appendChild(div);
+    });
 });
-
 </script>
-
+{% include 'includes/league_footer.html' %}
 </body>
 </html>

@@ -1,197 +1,74 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<title>Admin Dashboard</title>
-
-<style>
-
-body {
-    margin: 0;
-    font-family: Arial;
-    background: #020617;
-    color: white;
-}
-
-.header {
-    text-align: center;
-    padding: 15px;
-    background: #0f172a;
-}
-
-.container {
-    display: flex;
-    gap: 15px;
-    padding: 15px;
-}
-
-/* panels */
-.panel {
-    flex: 1;
-    background: #1e293b;
-    padding: 15px;
-    border-radius: 10px;
-    height: 85vh;
-    overflow-y: auto;
-}
-
-/* inputs */
-input, select {
-    width: 100%;
-    padding: 10px;
-    margin: 6px 0;
-    border: none;
-    border-radius: 5px;
-}
-
-/* buttons */
-button {
-    background: #22c55e;
-    border: none;
-    padding: 10px;
-    color: white;
-    cursor: pointer;
-    border-radius: 5px;
-    width: 100%;
-    margin-top: 5px;
-}
-
-button:hover {
-    background: #16a34a;
-}
-
-/* links */
-a {
-    color: #38bdf8;
-    text-decoration: none;
-}
-
-/* cards */
-.card {
-    background: #0f172a;
-    padding: 10px;
-    margin-bottom: 10px;
-    border-radius: 8px;
-}
-
-/* mobile */
-@media (max-width: 900px) {
-    .container {
-        flex-direction: column;
-    }
-
-    .panel {
-        height: auto;
-    }
-}
-
-</style>
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GPL 3.0 · Admin overview</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css">
 </head>
-
 <body>
+{% from 'includes/macros.html' import captain_face %}
+  <header class="screen-header">
+    {% include 'includes/brand_bar.html' %}
+    <nav class="nav-links">
+      <span style="color:var(--muted);font-size:0.8rem;">Admin</span>
+      <a href="{{ url_for('admin_teams') }}">Teams</a>
+      <a href="{{ url_for('admin_players') }}">Players</a>
+      <a href="{{ url_for('admin_auction') }}">Auction room</a>
+      <a href="{{ url_for('live_board') }}" target="_blank" rel="noopener">Live board</a>
+      <a href="{{ url_for('leaderboard') }}" target="_blank" rel="noopener">Leaderboard</a>
+      <a href="{{ url_for('admin_logout') }}">Logout</a>
+    </nav>
+  </header>
 
-<div class="header">
-    <h1>🏏 Cricket Auction Admin Panel</h1>
+  <div class="hub-cards">
+    <div class="hub-card">
+      <h2>Teams &amp; captains</h2>
+      <p style="color:var(--muted);font-size:0.9rem;">Create logins (10000 pts each, squad up to 7).</p>
+      <a href="{{ url_for('admin_teams') }}" class="btn btn--primary" style="margin-top:0.75rem;text-decoration:none;width:auto;display:inline-flex;">Manage teams</a>
+    </div>
+    <div class="hub-card">
+      <h2>Player pool</h2>
+      <p style="color:var(--muted);font-size:0.9rem;">Upload card images &amp; categories (base prices).</p>
+      <a href="{{ url_for('admin_players') }}" class="btn btn--primary" style="margin-top:0.75rem;text-decoration:none;width:auto;display:inline-flex;">Manage players</a>
+    </div>
+    <div class="hub-card">
+      <h2>Live auction</h2>
+      <p style="color:var(--muted);font-size:0.9rem;">Run lots, timer, manual sells, unsold, undo.</p>
+      <a href="{{ url_for('admin_auction') }}" class="btn btn--danger" style="margin-top:0.75rem;text-decoration:none;width:auto;display:inline-flex;">Open auction room</a>
+    </div>
+  </div>
 
-    <a href="/admin/auction">🔥 Auction Room</a> |
-    <a href="/live" target="_blank">📺 Live Screen</a> |
-    <a href="/leaderboard" target="_blank">📊 Leaderboard</a>
-</div>
-
-<div class="container">
-
-    <!-- LEFT: ADD TEAM -->
+  <div class="layout-grid" style="max-width:900px;">
     <div class="panel">
-
-        <h2>➕ Add Team</h2>
-
-        <form action="/add_team" method="post">
-
-            Team Name
-            <input name="team_name" required>
-
-            Username
-            <input name="username" required>
-
-            Password
-            <input name="password" required>
-
-            <button type="submit">Add Team</button>
-
-        </form>
-
-        <hr>
-
-        <h3>🏆 Teams</h3>
-
-        {% for t in teams %}
-        <div class="card">
-            <b>{{ t.team_name }}</b><br>
-            Points: {{ t.remaining_points }}<br>
-            Players: {{ t.players_bought }}/7
+      <h2>Teams snapshot</h2>
+      {% for t in teams %}
+        <div class="card-row team-cell-cap">
+          {{ captain_face(t) }}
+          <div>
+            <strong>{{ t.team_name }}</strong>
+            <span style="color:var(--muted);"> · {{ t.remaining_points }} pts · {{ t.players_bought }}/7 players</span>
+          </div>
         </div>
-        {% endfor %}
-
+      {% else %}
+        <p style="color:var(--muted);">No teams yet.</p>
+      {% endfor %}
     </div>
-
-    <!-- CENTER: ADD PLAYER -->
     <div class="panel">
-
-        <h2>➕ Add Player</h2>
-
-        <form action="/add_player" method="post" enctype="multipart/form-data">
-
-            Name
-            <input name="name" required>
-
-            Category
-            <select name="category">
-
-                <option value="1">Category 1 - 500</option>
-                <option value="2">Category 2 - 400</option>
-                <option value="3">Category 3 - 300</option>
-                <option value="4">Category 4 - 200</option>
-                <option value="5">Category 5 - 100</option>
-
-            </select>
-
-            Player Card Image
-            <input type="file" name="card" required>
-
-            <button type="submit">Add Player</button>
-
-        </form>
-
-    </div>
-
-    <!-- RIGHT: PLAYERS LIST -->
-    <div class="panel">
-
-        <h2>👤 Players</h2>
-
-        {% for p in players %}
-        <div class="card">
-
-            <b>{{ p.name }}</b><br>
-            Details: {{ p.card }}<br>
-            Base: {{ p.base_price }}<br>
-
-            {% if p.status == "sold" %}
-                <span style="color:yellow;">
-                    SOLD ({{ p.sold_price }})
-                </span>
-            {% else %}
-                <span style="color:#38bdf8;">
-                    AVAILABLE
-                </span>
-            {% endif %}
-
+      <h2>Players snapshot</h2>
+      <p style="color:var(--muted);font-size:0.9rem;margin:0 0 0.75rem;">{{ players|length }} total · {{ sold_count }} sold</p>
+      {% for p in players[:8] %}
+        <div class="card-row">
+          {{ p.name }} · Cat {{ p.category }} · {{ p.base_price }} pts
+          {% if p.status == 'sold' %}<span style="color:var(--warning);"> · Sold</span>{% endif %}
         </div>
-        {% endfor %}
-
+      {% endfor %}
+      {% if players|length > 8 %}
+        <p style="color:var(--muted);font-size:0.85rem;">See all in Players.</p>
+      {% endif %}
     </div>
-
-</div>
-
+  </div>
+{% include 'includes/league_footer.html' %}
 </body>
 </html>

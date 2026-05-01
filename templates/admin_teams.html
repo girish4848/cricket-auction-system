@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GPL 3.0 · Teams</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+{% from 'includes/macros.html' import captain_face %}
+  <header class="screen-header">
+    {% include 'includes/brand_bar.html' %}
+    <nav class="nav-links">
+      <span style="color:var(--muted);font-size:0.8rem;">Teams</span>
+      <a href="{{ url_for('admin_dashboard') }}">Overview</a>
+      <a href="{{ url_for('admin_players') }}">Players</a>
+      <a href="{{ url_for('admin_auction') }}">Auction room</a>
+      <a href="{{ url_for('admin_logout') }}">Logout</a>
+    </nav>
+  </header>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    <div class="flash-wrap">
+      {% for category, msg in messages %}
+        <div class="flash flash--{{ 'error' if category == 'error' else 'ok' }}">{{ msg }}</div>
+      {% endfor %}
+    </div>
+  {% endwith %}
+
+  <div class="layout-grid" style="max-width:960px;">
+    <div class="panel">
+      <h2>Add team</h2>
+      <form method="post" enctype="multipart/form-data">
+        <label for="team_name">Team name</label>
+        <input id="team_name" name="team_name" placeholder="e.g. Team Rahul" required>
+
+        <label for="username">Captain username</label>
+        <input id="username" name="username" autocomplete="off" required>
+
+        <label for="password">Captain password</label>
+        <input id="password" name="password" type="text" autocomplete="off" required>
+
+        <label for="captain_photo">Captain photo</label>
+        <input id="captain_photo" name="captain_photo" type="file" accept="image/*">
+        <p style="color:var(--muted);font-size:0.8rem;margin:0.35rem 0 0;">Shown on live board and captain consoles during the auction (square photo works best).</p>
+
+        <button type="submit" class="btn btn--primary form-actions">Save team</button>
+      </form>
+      <p style="color:var(--muted);font-size:0.85rem;margin-top:1rem;">
+        Each team starts with <strong>10000</strong> points (reserved minimum automatically enforced per remaining slots).
+      </p>
+    </div>
+
+    <div class="panel">
+      <h2>Registered teams</h2>
+      <div class="scroll-panel">
+        {% for t in teams %}
+          <div class="card-row team-cell-cap">
+            {{ captain_face(t) }}
+            <div style="flex:1;min-width:140px;">
+              <strong>{{ t.team_name }}</strong><br>
+              <span style="color:var(--muted);font-size:0.85rem;">
+                Login: {{ t.username }} · {{ t.remaining_points }} pts · {{ t.players_bought }}/7 players
+              </span>
+            </div>
+            <div class="card-row-actions">
+              <a href="{{ url_for('admin_edit_team', tid=t.id) }}" class="btn btn--ghost">Edit</a>
+              <a href="{{ url_for('admin_delete_team', tid=t.id) }}" class="btn btn--danger">Delete</a>
+            </div>
+          </div>
+        {% else %}
+          <p style="color:var(--muted);">No teams yet.</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+{% include 'includes/league_footer.html' %}
+</body>
+</html>

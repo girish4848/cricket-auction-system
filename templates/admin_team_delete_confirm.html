@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GPL 3.0 · Delete team</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <header class="screen-header">
+    {% include 'includes/brand_bar.html' %}
+    <nav class="nav-links">
+      <span style="color:var(--muted);font-size:0.8rem;">Delete team</span>
+      <a href="{{ url_for('admin_teams') }}">Teams</a>
+      <a href="{{ url_for('admin_dashboard') }}">Overview</a>
+      <a href="{{ url_for('admin_logout') }}">Logout</a>
+    </nav>
+  </header>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    <div class="flash-wrap">
+      {% for category, msg in messages %}
+        <div class="flash flash--{{ 'error' if category == 'error' else 'ok' }}">{{ msg }}</div>
+      {% endfor %}
+    </div>
+  {% endwith %}
+
+  <div class="layout-grid" style="max-width:520px;">
+    <div class="panel">
+      <h2>Delete team</h2>
+      <p>You are about to permanently remove <strong>{{ team.team_name }}</strong> (login <strong>{{ team.username }}</strong>). This cannot be undone.</p>
+      <p style="color:var(--muted);font-size:0.85rem;">Teams with any assigned players (sold squad) cannot be deleted — remove or reassign players first via the database if needed.</p>
+
+      <form method="post">
+        <label for="confirm_password">Admin password</label>
+        <input id="confirm_password" name="confirm_password" type="password" autocomplete="current-password" required placeholder="ADMIN_PASSWORD">
+
+        <div class="form-actions" style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:1rem;">
+          <button type="submit" class="btn btn--danger">Delete team</button>
+          <a href="{{ url_for('admin_teams') }}" class="btn btn--ghost">Cancel</a>
+        </div>
+      </form>
+    </div>
+  </div>
+{% include 'includes/league_footer.html' %}
+</body>
+</html>
