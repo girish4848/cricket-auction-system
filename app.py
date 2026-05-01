@@ -1,7 +1,16 @@
+import os
+
+# Eventlet + Flask-SocketIO on Gunicorn: patch stdlib before other imports so greenlets,
+# Redis (message_queue), SQLAlchemy drivers, and threading cooperate — avoids hung timers / emits.
+if os.environ.get("SOCKETIO_ASYNC_MODE", "").strip().lower() == "eventlet":
+    import eventlet
+
+    eventlet.monkey_patch()
+
 import copy
 import json
+import logging
 import math
-import os
 import random
 import threading
 import time
@@ -11,6 +20,8 @@ from flask_socketio import SocketIO, emit
 from werkzeug.utils import secure_filename
 
 from sqlalchemy import inspect, text
+
+logger = logging.getLogger(__name__)
 
 from models import (
     AuctionArchive,
@@ -31,6 +42,11 @@ if _database_url.startswith("postgres://"):
 
 app.config["SQLALCHEMY_DATABASE_URI"] = _database_url
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+if "postgresql" in _database_url.lower():
+    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+        "pool_pre_ping": True,
+        "pool_recycle": 280,
+    }
 
 UPLOAD_FOLDER = "static/uploads"
 CAPTAINS_UPLOAD_SUBDIR = "captains"
@@ -90,7 +106,12 @@ def admin_ui_context():
 # Production (Gunicorn + eventlet worker): set SOCKETIO_ASYNC_MODE=eventlet — Procfile does this on Linux.
 _socket_async = os.environ.get("SOCKETIO_ASYNC_MODE", "threading")
 _redis_url = os.environ.get("REDIS_URL")
-_socket_kw: dict = {"cors_allowed_origins": "*", "async_mode": _socket_async}
+_socket_kw: dict = {
+    "cors_allowed_origins": "*",
+    "async_mode": _socket_async,
+    "ping_interval": 25,
+    "ping_timeout": 120,
+}
 if _redis_url:
     _socket_kw["message_queue"] = _redis_url
 socketio = SocketIO(app, **_socket_kw)
@@ -455,6 +476,12 @@ def broadcast_state():
             "opening_claim": opening_claim,
             "claim_amount": player.base_price if opening_claim else None,
             "timer": emit_timer,
+            "timer_deadline": (
+                state.timer_deadline
+                if state.auction_status == "running"
+                and state.timer_deadline is not None
+                else None
+            ),
             "status": state.auction_status,
             "full_auction_started": state.full_auction_started,
             "next_increment": next_inc,
@@ -533,8 +560,8 @@ def auction_timer_loop():
 
                 if rem <= 0:
                     finalize_sale_from_timer()
-        except Exception as exc:
-            print("auction_timer_loop:", exc)
+        except Exception:
+            logger.exception("auction_timer_loop")
 
 
 with app.app_context():

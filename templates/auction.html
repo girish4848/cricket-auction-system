@@ -128,6 +128,20 @@ var socket = io();
 if (window.AuctionAudio) AuctionAudio.bindSocket(socket);
   var myTeamId = {{ team.id }};
   var initialComplete = {{ 'true' if state.auction_complete else 'false' }};
+  var capTimerDeadlineSec = {% if state.auction_status == 'running' and state.timer_deadline is not none %}{{ state.timer_deadline }}{% else %}null{% endif %};
+
+  function paintCapTimer() {
+    var el = document.getElementById("timer");
+    if (!el) return;
+    if (capTimerDeadlineSec == null) {
+      el.textContent = "—";
+      return;
+    }
+    var rem = Math.max(0, Math.ceil(capTimerDeadlineSec - Date.now() / 1000));
+    el.textContent = rem + " s";
+  }
+  setInterval(paintCapTimer, 250);
+  paintCapTimer();
 
   socket.emit("request_state");
 
@@ -268,8 +282,11 @@ socket.on("auction_state_update", function (data) {
 
   document.getElementById("bid").textContent = data.bid;
   document.getElementById("leader").textContent = data.leading_team || "—";
-  document.getElementById("timer").textContent =
-    data.timer != null ? data.timer + " s" : "—";
+  capTimerDeadlineSec =
+    data.status === "running" && data.timer_deadline != null
+      ? data.timer_deadline
+      : null;
+  paintCapTimer();
   document.getElementById("nextInc").textContent = data.next_increment || 0;
 
   var canBid =

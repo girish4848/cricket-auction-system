@@ -84,6 +84,20 @@ var socket = io();
 if (window.AuctionAudio) AuctionAudio.bindSocket(socket);
 socket.emit("request_state");
 
+var lbTimerDeadlineSec = {% if state.auction_status == 'running' and state.timer_deadline is not none %}{{ state.timer_deadline }}{% else %}null{% endif %};
+function paintLbTimer() {
+  var el = document.getElementById("lb-timer");
+  if (!el) return;
+  if (lbTimerDeadlineSec == null) {
+    el.textContent = "—";
+    return;
+  }
+  var rem = Math.max(0, Math.ceil(lbTimerDeadlineSec - Date.now() / 1000));
+  el.textContent = rem + " s";
+}
+setInterval(paintLbTimer, 250);
+paintLbTimer();
+
 function lbCaptainCell(t) {
   var ph = t.captain_photo;
   var nm = t.name || "?";
@@ -161,8 +175,11 @@ socket.on("auction_state_update", function (data) {
 
   document.getElementById("lb-bid").textContent = data.bid;
   document.getElementById("lb-leader").textContent = data.leading_team || "—";
-  document.getElementById("lb-timer").textContent =
-    data.timer != null ? data.timer + " s" : "—";
+  lbTimerDeadlineSec =
+    data.status === "running" && data.timer_deadline != null
+      ? data.timer_deadline
+      : null;
+  paintLbTimer();
   document.getElementById("lb-inc").textContent = data.next_increment || 0;
   document.getElementById("lb-status").textContent = data.status;
 

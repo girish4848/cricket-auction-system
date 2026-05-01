@@ -233,6 +233,20 @@
   if (window.AuctionAudio) AuctionAudio.bindSocket(socket);
   socket.emit("request_state");
 
+  var admTimerDeadlineSec = {% if state.auction_status == 'running' and state.timer_deadline is not none %}{{ state.timer_deadline }}{% else %}null{% endif %};
+  function paintAdmTimer() {
+    var el = document.getElementById("adm-timer");
+    if (!el) return;
+    if (admTimerDeadlineSec == null) {
+      el.textContent = "—";
+      return;
+    }
+    var rem = Math.max(0, Math.ceil(admTimerDeadlineSec - Date.now() / 1000));
+    el.textContent = rem + " s";
+  }
+  setInterval(paintAdmTimer, 250);
+  paintAdmTimer();
+
   function $(sel) { return document.querySelector(sel); }
 
   function capCellHtml(t) {
@@ -296,6 +310,12 @@
     var r = document.getElementById("adm-ready");
     if (r) r.textContent = data.captains_ready ? "yes" : "no";
 
+    admTimerDeadlineSec =
+      data.status === "running" && data.timer_deadline != null
+        ? data.timer_deadline
+        : null;
+    paintAdmTimer();
+
     var hero = document.getElementById("adm-hero-lot-panel");
     var admLotLive = !!(data.player && (data.status === "waiting" || data.status === "running"));
     if (hero) hero.classList.toggle("hero-card-wrap--lot-live", admLotLive);
@@ -312,8 +332,6 @@
       if (bidEl) bidEl.textContent = data.bid;
       var leadEl = document.getElementById("adm-leader");
       if (leadEl) leadEl.textContent = data.leading_team || "—";
-      var timerEl = document.getElementById("adm-timer");
-      if (timerEl) timerEl.textContent = data.timer != null ? data.timer + " s" : "—";
       var incEl = document.getElementById("adm-inc");
       if (incEl) incEl.textContent = data.next_increment;
       var stEl = document.getElementById("adm-status");
